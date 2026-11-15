@@ -1,0 +1,117 @@
+import { app, BrowserWindow, Menu, ipcMain, screen, type Rectangle } from 'electron'
+import { join } from 'node:path'
+import { addCharacter, cachedCharacters, cancelLogin, characterMarketRegion, hasStoredCharacters, itemHistory, itemMarket, listCharacters, publicSettings, removeCharacter, reorderCharacters, saveSettings, searchMarketTypes } from './eve'
+import { readStore, writeStore, type WindowState } from './store'
+
+Menu.setApplicationMenu(null)
+
+function defaultWindow(): WindowState {
+  return { width: 1440, height: 900, maximized: false }
+}
+
+function windowOnScreen(state: WindowState): WindowState {
+  if (state.x == null || state.y == null) return state
+  const bounds = { x: state.x, y: state.y, width: state.width, height: state.height }
+  const visible = screen.getAllDisplays().some((display) => intersects(display.workArea, bounds))
+  if (!visible) return { width: state.width, height: state.height, maximized: state.maximized }
+  return state
+}
+
+function intersects(area: Rectangle, bounds: Rectangle): boolean {
+  return bounds.x < area.x + area.width - 80 && bounds.x + bounds.width > area.x + 80 && bounds.y < area.y + area.height - 80 && bounds.y + 40 > area.y
+}
+
+function rememberWindow(win: BrowserWindow): void {
+  const bounds = win.getNormalBounds()
+  const store = readStore()
+  store.window = {
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    maximized: win.isMaximized()
+  }
+  writeStore(store)
+}
+
+function createWindow(): void {
+  const state = windowOnScreen(readStore().window ?? defaultWindow())
+  const win = new BrowserWindow({
+    ...(state.x != null && state.y != null ? { x: state.x, y: state.y } : {}),
+    width: state.width,
+    height: state.height,
+    minWidth: 1100,
+    minHeight: 700,
+    show: false,
+    frame: false,
+    backgroundColor: '#07090d',
+    title: 'capsuleerOS',
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  })
+
+  win.on('close', () => rememberWindow(win))
+
+  win.on('ready-to-show', () => {
+    if (state.maximized) win.maximize()
+    win.show()
+  })
+
+  if (process.env.ELECTRON_RENDERER_URL) {
+    void win.loadURL(process.env.ELECTRON_RENDERER_URL)
+  } else {
+    void win.loadFile(join(__dirname, '../renderer/index.html'))
+  }
+}
+
+function bindWindow(channel: string, action: (win: BrowserWindow) => void): void {
+  ipcMain.on(channel, (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win) action(win)
+  })
+}
+
+bindWindow('window:minimize', (win) => win.minimize())
+bindWindow('window:toggle-maximize', (win) => {
+  if (win.isMaximized()) win.unmaximize()
+  else win.maximize()
+})
+bindWindow('window:close', (win) => win.close())
+
+ipcMain.handle('sso:settings', () => publicSettings())
+ipcMain.handle('sso:save-settings', (_event, input: { clientId: string; clientSecret?: string }) => saveSettings(input))
+ipcMain.handle('sso:has', () => hasStoredCharacters())
+ipcMain.handle('sso:cached', () => cachedCharacters())
+ipcMain.handle('sso:list', () => listCharacters())
+ipcMain.handle('sso:add', () => addCharacter())
+ipcMain.handle('sso:cancel', () => {
+  cancelLogin()
+})
+ipcMain.handle('sso:remove', (_event, id: string) => {
+  removeCharacter(id)
+})
+ipcMain.handle('sso:reorder', (_event, ids: string[]) => {
+  reorderCharacters(ids)
+})
+ipcMain.handle('market:search', (_event, query: string) => searchMarketTypes(query))
+ipcMain.handle('market:region', (_event, characterId: number) => characterMarketRegion(characterId))
+ipcMain.handle('market:orders', (_event, characterId: number, regionId: number, typeId: number) =>
+  itemMarket(characterId, regionId, typeId)
+)
+ipcMain.handle('market:history', (_event, regionId: number, typeId: number) => itemHistory(regionId, typeId))
+
+app.whenReady().then(() => {
+  createWindow()
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  })
+})
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit()
+})
