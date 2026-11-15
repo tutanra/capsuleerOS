@@ -1,16 +1,21 @@
 import { memo } from 'react'
-import { formatIsk, formatSignedIsk } from '../lib/format'
+import { Isk } from '../components/Isk'
+import { formatDotDateTime } from '../lib/format'
 import { useCharacter } from '../state/character'
+import { useSettings } from '../state/settings'
 
 export const Wallet = memo(function Wallet() {
   const profile = useCharacter().profile
+  useSettings().clockMode
   if (!profile) return null
   const { character, journal } = profile
   return (
     <div className="stack">
       <div className="wallet-hero">
         <span className="dim">Saldo</span>
-        <strong>{formatIsk(character.wallet)}</strong>
+        <strong>
+          <Isk value={character.wallet} />
+        </strong>
       </div>
       <div className="pane grow">
         <table className="wallet-table">
@@ -38,11 +43,15 @@ export const Wallet = memo(function Wallet() {
             )}
             {journal.map((row) => (
               <tr key={`${row.when}-${row.ref}`}>
-                <td>{row.when}</td>
+                <td className="mono">{formatDotDateTime(row.when)}</td>
                 <td title={row.ref}>{row.ref}</td>
                 <td title={row.party}>{row.party}</td>
-                <td className={row.amount >= 0 ? 'num pos' : 'num neg'}>{formatSignedIsk(row.amount)}</td>
-                <td className="num">{formatIsk(row.balance)}</td>
+                <td className={row.amount >= 0 ? 'num pos' : 'num neg'}>
+                  <Isk value={row.amount} signed />
+                </td>
+                <td className="num">
+                  <Isk value={row.balance} />
+                </td>
               </tr>
             ))}
           </tbody>

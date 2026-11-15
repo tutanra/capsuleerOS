@@ -1,8 +1,10 @@
 import { memo, useEffect, useMemo, useState } from 'react'
+import { ClearableInput } from '../components/ClearableInput'
+import { Isk } from '../components/Isk'
 import { PriceChart } from '../components/PriceChart'
 import { Spinner } from '../components/Spinner'
 import { TypeIcon } from '../components/TypeIcon'
-import { formatIsk, formatNum } from '../lib/format'
+import { formatNum } from '../lib/format'
 import { useCharacter } from '../state/character'
 import { MARKET_REGIONS, type MarketBook, type MarketDay, type MarketTypeHit } from '../types'
 
@@ -60,7 +62,9 @@ function BookTable({
         {orders.map((order, index) => (
           <tr key={`${order.price}-${order.volume}-${order.location}-${index}`} className={markCheapest && index === 0 ? 'cheapest' : undefined}>
             <td className="num">{formatNum(order.volume)}</td>
-            <td className="num">{formatIsk(order.price)}</td>
+            <td className="num">
+              <Isk value={order.price} />
+            </td>
             {buy && <td>{order.range}</td>}
             <td className="place" title={order.location}>
               {order.location}
@@ -133,7 +137,7 @@ export const ItemMarket = memo(function ItemMarket() {
   }, [item, query])
 
   useEffect(() => {
-    if (!characterId || !item || !window.os?.itemMarket) return
+    if (!item || !window.os?.itemMarket) return
     let active = true
     setLoading(true)
     setError('')
@@ -145,7 +149,7 @@ export const ItemMarket = memo(function ItemMarket() {
       if (active) setHistory([])
     })
     void window.os
-      .itemMarket(characterId, regionId, item.id)
+      .itemMarket(characterId ?? 0, regionId, item.id)
       .then((next) => {
         if (active) setBook(next)
       })
@@ -168,37 +172,28 @@ export const ItemMarket = memo(function ItemMarket() {
     () => (plex ? 'Mercado global de PLEX' : (regions.find((region) => region.id === regionId)?.name ?? 'Región')),
     [plex, regions, regionId]
   )
-  if (!profile || !characterId) return null
 
   return (
     <div className="stack">
       <div className="toolbar">
         <div className="market-tools">
         <div className="market-search">
-          <label className="market-field">
-          <input
+          <ClearableInput
+            fieldClassName="market-field"
             value={query}
-            onChange={(event) => {
-              setQuery(event.target.value)
+            onChange={(value) => {
+              setQuery(value)
               setError('')
             }}
-            placeholder="Buscar objeto"
-            aria-label="Buscar objeto"
-          />
-          <button
-            type="button"
-            className="skill-clear"
-            aria-label="Borrar búsqueda"
-            onClick={() => {
+            onClear={() => {
               setQuery('')
               setHits([])
               setItem(null)
               setError('')
             }}
-          >
-            ×
-          </button>
-          </label>
+            placeholder="Buscar objeto"
+            aria-label="Buscar objeto"
+          />
           {hits.length > 0 && query.trim().length >= 3 && (
             <div className="market-hits" role="listbox">
               {hits.map((hit) => (
@@ -289,7 +284,11 @@ export const ItemMarket = memo(function ItemMarket() {
           {error
             ? error
             : cheapest
-              ? `Más barato en ${regionName}: ${formatIsk(cheapest.price)} · ${cheapest.location}`
+              ? (
+                <span className="isk-pair">
+                  Más barato en {regionName}: <Isk value={cheapest.price} /> · {cheapest.location}
+                </span>
+              )
               : loading && item
                 ? <span className="loading-note"><Spinner /> Actualizando {item.name} en {regionName}…</span>
               : item

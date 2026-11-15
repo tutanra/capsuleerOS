@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { formatIsk, formatNum } from '../lib/format'
+import { Isk } from './Isk'
+import { formatNum } from '../lib/format'
 import type { MarketDay } from '../types'
 
 function compact(value: number): string {
@@ -20,21 +21,18 @@ function movingAverage(values: number[], window: number): Array<number | null> {
   return result
 }
 
+function pad2(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
 function dayLabel(iso: string): string {
   const [year, month, day] = iso.split('-').map(Number)
-  return new Intl.DateTimeFormat('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC'
-  }).format(new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1)))
+  return `${pad2(day ?? 1)}.${pad2(month ?? 1)}.${pad2((year ?? 1970) % 100)}`
 }
 
 function monthLabel(iso: string): string {
   const [year, month] = iso.split('-').map(Number)
-  return new Intl.DateTimeFormat('es-ES', { month: 'short', timeZone: 'UTC' }).format(
-    new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, 1))
-  )
+  return `${pad2(month ?? 1)}.${pad2((year ?? 1970) % 100)}`
 }
 
 const MIN_DAYS = 7
@@ -183,7 +181,7 @@ export function PriceChart({ days }: { days: MarketDay[] }) {
         {chart.ticks.map((tick) => (
           <g key={tick}>
             <line x1={chart.padL} x2={width - 12} y1={chart.yPrice(tick)} y2={chart.yPrice(tick)} stroke="rgba(255,255,255,0.06)" />
-            <text x={4} y={chart.yPrice(tick) + 4} fill="#8b98a8" fontSize="11">
+            <text x={4} y={chart.yPrice(tick) + 4} fill="#7eb4cc" fontSize="11">
               {compact(tick)}
             </text>
           </g>
@@ -216,7 +214,7 @@ export function PriceChart({ days }: { days: MarketDay[] }) {
           />
         ))}
         {chart.months.map((month) => (
-          <text key={`${month.label}-${month.x}`} x={month.x} y={chart.height - 6} fill="#8b98a8" fontSize="11">
+          <text key={`${month.label}-${month.x}`} x={month.x} y={chart.height - 6} fill="#7eb4cc" fontSize="11">
             {month.label}
           </text>
         ))}
@@ -228,9 +226,9 @@ export function PriceChart({ days }: { days: MarketDay[] }) {
       {active && hover != null && (
         <div className="history-tip" style={{ left: Math.min(width - 180, Math.max(8, chart.xAt(hover) + 8)) }}>
           <strong>{dayLabel(active.date)}</strong>
-          <span>Medio {formatIsk(active.average)}</span>
-          <span>Máx {formatIsk(active.highest)}</span>
-          <span>Mín {formatIsk(active.lowest)}</span>
+          <span className="isk-pair">Medio <Isk value={active.average} /></span>
+          <span className="isk-pair">Máx <Isk value={active.highest} /></span>
+          <span className="isk-pair">Mín <Isk value={active.lowest} /></span>
           <span>Volumen {formatNum(active.volume)}</span>
         </div>
       )}

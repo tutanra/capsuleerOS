@@ -28,7 +28,12 @@ const api = {
   itemMarket: (characterId: number, regionId: number, typeId: number) =>
     ipcRenderer.invoke('market:orders', characterId, regionId, typeId) as Promise<MarketBook>,
   itemHistory: (regionId: number, typeId: number) =>
-    ipcRenderer.invoke('market:history', regionId, typeId) as Promise<MarketDay[]>
+    ipcRenderer.invoke('market:history', regionId, typeId) as Promise<MarketDay[]>,
+  skillDescription: (typeId: number) =>
+    ipcRenderer.invoke('skills:description', typeId) as Promise<{
+      description: string
+      requirements: Array<{ typeId: number; name: string; level: number }>
+    }>
 }
 
 contextBridge.exposeInMainWorld('os', api)

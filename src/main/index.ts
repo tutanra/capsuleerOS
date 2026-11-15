@@ -1,6 +1,6 @@
 import { app, BrowserWindow, Menu, ipcMain, screen, type Rectangle } from 'electron'
 import { join } from 'node:path'
-import { addCharacter, cachedCharacters, cancelLogin, characterMarketRegion, hasStoredCharacters, itemHistory, itemMarket, listCharacters, publicSettings, removeCharacter, reorderCharacters, saveSettings, searchMarketTypes } from './eve'
+import { addCharacter, cachedCharacters, cancelLogin, characterMarketRegion, hasStoredCharacters, itemHistory, itemMarket, listCharacters, publicSettings, removeCharacter, reorderCharacters, saveSettings, searchMarketTypes, skillDescription } from './eve'
 import { readStore, writeStore, type WindowState } from './store'
 
 Menu.setApplicationMenu(null)
@@ -34,6 +34,10 @@ function rememberWindow(win: BrowserWindow): void {
   writeStore(store)
 }
 
+function appIconPath(): string {
+  return join(__dirname, '../../resources/icon.png')
+}
+
 function createWindow(): void {
   const state = windowOnScreen(readStore().window ?? defaultWindow())
   const win = new BrowserWindow({
@@ -46,6 +50,7 @@ function createWindow(): void {
     frame: false,
     backgroundColor: '#07090d',
     title: 'capsuleerOS',
+    icon: appIconPath(),
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -104,6 +109,7 @@ ipcMain.handle('market:orders', (_event, characterId: number, regionId: number, 
   itemMarket(characterId, regionId, typeId)
 )
 ipcMain.handle('market:history', (_event, regionId: number, typeId: number) => itemHistory(regionId, typeId))
+ipcMain.handle('skills:description', (_event, typeId: number) => skillDescription(typeId))
 
 app.whenReady().then(() => {
   createWindow()

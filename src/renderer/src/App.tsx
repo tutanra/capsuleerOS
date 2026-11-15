@@ -7,6 +7,7 @@ import { Inventory } from './modules/Inventory'
 import { ItemMarket } from './modules/ItemMarket'
 import { Market } from './modules/Market'
 import { Overview } from './modules/Overview'
+import { Settings } from './modules/Settings'
 import { Skills } from './modules/Skills'
 import { Wallet } from './modules/Wallet'
 import { useCharacter } from './state/character'
@@ -15,6 +16,7 @@ import { MODULES, type ModuleId } from './types'
 export function App() {
   const [module, setModule] = useState<ModuleId>('overview')
   const { profile, adding, setAdding, loadingCharacters, charactersReady } = useCharacter()
+  const needsCharacter = module !== 'settings' && module !== 'prices'
 
   return (
     <div className="shell">
@@ -25,12 +27,18 @@ export function App() {
           <section className="stage" aria-label={MODULES[module].title}>
             <header className="stage-title">{MODULES[module].title}</header>
             <div className="stage-body">
-              {loadingCharacters && (
+              <div className="module-pane" hidden={module !== 'settings'}>
+                <Settings />
+              </div>
+              <div className="module-pane" hidden={module !== 'prices'}>
+                <ItemMarket />
+              </div>
+              {needsCharacter && loadingCharacters && (
                 <div className="empty-app">
                   <p className="loading-note"><Spinner /> Cargando personajes....</p>
                 </div>
               )}
-              {charactersReady && !loadingCharacters && !profile && (
+              {needsCharacter && charactersReady && !loadingCharacters && !profile && (
                 <div className="empty-app">
                   <p>No hay ningún personaje conectado.</p>
                   <button type="button" onClick={() => setAdding(true)}>
@@ -54,9 +62,6 @@ export function App() {
                   </div>
                   <div className="module-pane" hidden={module !== 'wallet'}>
                     <Wallet key={profile.id} />
-                  </div>
-                  <div className="module-pane" hidden={module !== 'prices'}>
-                    <ItemMarket key={profile.id} />
                   </div>
                 </>
               )}

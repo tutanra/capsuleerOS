@@ -1,31 +1,19 @@
 import { memo, useMemo, useState } from 'react'
+import { ClearableInput } from '../components/ClearableInput'
+import { Pips } from '../components/Pips'
+import { SkillTip } from '../components/SkillTip'
 import { formatEveDate, formatNum } from '../lib/format'
 import { useCharacter } from '../state/character'
+import { useSettings } from '../state/settings'
 import type { Skill, TrainingJob } from '../types'
 
-type SectionId = 'queue' | 'trained' | 'untrained' | 'calc'
+type SectionId = 'queue' | 'trained' | 'calc'
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'queue', label: 'Cola Actual' },
   { id: 'trained', label: 'Entrenados' },
-  { id: 'untrained', label: 'Skill no obtenida' },
   { id: 'calc', label: 'Cálculos' }
 ]
-
-function Pips({ level, trainingTo }: { level: number; trainingTo?: number }) {
-  return (
-    <span className="pips" aria-label={trainingTo ? `Entrenando al nivel ${trainingTo}` : `Nivel ${level}`}>
-      {Array.from({ length: 5 }, (_, index) => {
-        const rank = index + 1
-        const learning = trainingTo === rank
-        const filled = index < level
-        const maxed = level === 5 && filled
-        const className = learning ? 'pip learn' : maxed ? 'pip max' : filled ? 'pip on' : 'pip'
-        return <i key={index} className={className} />
-      })}
-    </span>
-  )
-}
 
 function parseSp(raw: string): number {
   const digits = raw.replace(/\D/g, '')
@@ -106,32 +94,46 @@ function matchesSkill(name: string, query: string): boolean {
   return name.toLocaleLowerCase('es').includes(needle)
 }
 
-function SkillTable({ skills, queued, empty }: { skills: Skill[]; queued: Set<string>; empty: string }) {
+function SkillRows({
+  skills,
+  queued,
+  queueTarget,
+  trainingTo
+}: {
+  skills: Skill[]
+  queued: Set<string>
+  queueTarget: Map<string, number>
+  trainingTo?: { name: string; to: number }
+}) {
   return (
-    <table className="skills-table">
+    <table className="skills-table dense">
       <thead>
         <tr>
           <th>Habilidad</th>
-          <th>Nivel</th>
           <th className="num">SP</th>
+          <th className="pips-cell">Nivel</th>
         </tr>
       </thead>
       <tbody>
-        {skills.length === 0 && (
-          <tr>
-            <td colSpan={3}>{empty}</td>
-          </tr>
-        )}
         {skills.map((skill) => (
-          <tr key={skill.name}>
+          <tr key={skill.name} className={skill.buy ? 'skill-buy' : undefined}>
             <td>
-              {skill.name}
-              {queued.has(skill.name) && <em> en cola</em>}
+              <SkillTip typeId={skill.typeId} name={skill.name}>
+                {skill.buy ? <em className="buy-tag"> comprar</em> : queued.has(skill.name) && <em> en cola</em>}
+              </SkillTip>
             </td>
-            <td>
-              <Pips level={skill.level} />
+            <td className="num">{skill.buy ? '—' : `${formatNum(skill.sp)} SP`}</td>
+            <td className="pips-cell">
+              {skill.buy ? (
+                <span className="dim">—</span>
+              ) : (
+                <Pips
+                  level={skill.level}
+                  queueTo={queueTarget.get(skill.name)}
+                  trainingTo={trainingTo?.name === skill.name ? trainingTo.to : undefined}
+                />
+              )}
             </td>
-            <td className="num">{formatNum(skill.sp)} SP</td>
           </tr>
         ))}
       </tbody>
@@ -139,8 +141,45 @@ function SkillTable({ skills, queued, empty }: { skills: Skill[]; queued: Set<st
   )
 }
 
+function SkillGroupSection({
+  title,
+  skills,
+  queued,
+  queueTarget,
+  trainingTo,
+  forceOpen
+}: {
+  title: string
+  skills: Skill[]
+  queued: Set<string>
+  queueTarget: Map<string, number>
+  trainingTo?: { name: string; to: number }
+  forceOpen: boolean
+}) {
+  const [open, setOpen] = useState(true)
+  const expanded = forceOpen || open
+  return (
+    <>
+      <button
+        type="button"
+        className="inv-label"
+        aria-expanded={expanded}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="twist" aria-hidden="true">{expanded ? '▾' : '▸'}</span>
+        {title}
+        <span className="nav-meta">{skills.length}</span>
+      </button>
+      {expanded && (
+        <SkillRows skills={skills} queued={queued} queueTarget={queueTarget} trainingTo={trainingTo} />
+      )}
+    </>
+  )
+}
+
 export const Skills = memo(function Skills() {
   const profile = useCharacter().profile
+  useSettings().clockMode
   const skillGroups = profile?.skillGroups ?? []
   const trainingQueue = profile?.trainingQueue ?? []
   const [section, setSection] = useState<SectionId>('queue')
@@ -148,9 +187,34 @@ export const Skills = memo(function Skills() {
   const [skillQuery, setSkillQuery] = useState('')
   const trained = skillGroups.flatMap((group) => group.skills)
   const untrained = profile?.unownedSkills ?? []
-  const trainedVisible = trained.filter((skill) => matchesSkill(skill.name, skillQuery))
-  const untrainedVisible = untrained.filter((skill) => matchesSkill(skill.name, skillQuery))
+  const trainedGroups = useMemo(() => {
+    const byGroup = new Map<string, Skill[]>()
+    for (const group of skillGroups) {
+      const skills = group.skills.filter((skill) => matchesSkill(skill.name, skillQuery))
+      if (skills.length > 0) byGroup.set(group.name, skills)
+    }
+    for (const skill of untrained) {
+      if (!matchesSkill(skill.name, skillQuery)) continue
+      const name = skill.group ?? 'Other'
+      const list = byGroup.get(name) ?? []
+      list.push(skill)
+      byGroup.set(name, list)
+    }
+    return [...byGroup.entries()]
+      .map(([name, skills]) => ({
+        name,
+        skills: [...skills].sort((a, b) => a.name.localeCompare(b.name, 'en'))
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'en'))
+  }, [skillGroups, untrained, skillQuery])
   const queued = new Set(trainingQueue.map((job) => job.name))
+  const queueTarget = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const job of trainingQueue) {
+      map.set(job.name, Math.max(map.get(job.name) ?? 0, job.to))
+    }
+    return map
+  }, [trainingQueue])
   const points = parseSp(spText)
   const projection = useMemo(() => projectQueue(trainingQueue, points), [trainingQueue, points])
   if (!profile) return null
@@ -160,11 +224,15 @@ export const Skills = memo(function Skills() {
   const partial = projection.rows.find((row) => row.left > 0 && row.covered > 0)
   const queueSp = trainingQueue.reduce((sum, job) => sum + (job.remainingSp ?? 0), 0)
   const queueEnd = trainingQueue.at(-1)?.finishAt ?? null
+  const activeJob = trainingQueue[0]
+  const activeTraining =
+    activeJob && activeJob.finishAt != null && Date.parse(activeJob.finishAt) > Date.now()
+      ? { name: activeJob.name, to: activeJob.to }
+      : undefined
 
   const counts: Record<SectionId, number | null> = {
     queue: trainingQueue.length,
     trained: trained.length,
-    untrained: untrained.length,
     calc: null
   }
 
@@ -200,19 +268,15 @@ export const Skills = memo(function Skills() {
           ))}
         </div>
         <div className="pane skill-pane">
-          {(section === 'trained' || section === 'untrained') && (
+          {section === 'trained' && (
             <form className="skill-filter" onSubmit={(event) => event.preventDefault()}>
-              <label className="skill-filter-field">
-                <input
-                  value={skillQuery}
-                  placeholder="Filtrar habilidad"
-                  aria-label="Filtrar habilidad"
-                  onChange={(event) => setSkillQuery(event.target.value)}
-                />
-                <button type="button" className="skill-clear" aria-label="Borrar filtro" onClick={() => setSkillQuery('')}>
-                  ×
-                </button>
-              </label>
+              <ClearableInput
+                fieldClassName="skill-filter-field"
+                value={skillQuery}
+                onChange={setSkillQuery}
+                placeholder="Filtrar habilidad"
+                aria-label="Filtrar habilidad"
+              />
             </form>
           )}
           <div className="skill-scroll">
@@ -227,9 +291,9 @@ export const Skills = memo(function Skills() {
                   <tr>
                     <th>Habilidad</th>
                     <th className="num">SP restantes</th>
-                    <th className="pips-cell">Nivel</th>
                     <th className="num">Días</th>
                     <th>Fin estimado</th>
+                    <th className="pips-cell">Nivel</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -241,17 +305,21 @@ export const Skills = memo(function Skills() {
                   {trainingQueue.map((job, index) => {
                     const training = index === 0 && job.finishAt != null && Date.parse(job.finishAt) > Date.now()
                     return (
-                    <tr key={`${job.name}-${job.to}-${index}`} className={training ? 'training' : undefined}>
+                    <tr key={`${job.name}-${job.to}-${index}`} className={training ? 'training' : 'queued'}>
                       <td>
                         {training && <i className="train-blink" title="Entrenando" />}
-                        {job.name}
+                        <SkillTip typeId={job.typeId} name={job.name} />
                       </td>
                       <td className="num">{formatNum(job.remainingSp ?? 0)} SP</td>
-                      <td className="pips-cell">
-                        <Pips level={job.from} trainingTo={training ? job.to : undefined} />
-                      </td>
                       <td className="num">{ownDuration(trainingQueue, index)}</td>
                       <td className="mono">{formatEveDate(job.finishAt)}</td>
+                      <td className="pips-cell">
+                        <Pips
+                          level={job.from}
+                          queueTo={job.to}
+                          trainingTo={training ? job.to : undefined}
+                        />
+                      </td>
                     </tr>
                     )
                   })}
@@ -260,45 +328,35 @@ export const Skills = memo(function Skills() {
             </>
           )}
           {section === 'trained' && (
-            <SkillTable
-              skills={trainedVisible}
-              queued={queued}
-              empty={skillQuery.trim() ? 'Ninguna habilidad coincide.' : 'Sin habilidades en esta lista.'}
-            />
-          )}
-          {section === 'untrained' && (
-            <table className="skills-table">
-              <thead>
-                <tr>
-                  <th>Libro no comprado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {untrainedVisible.length === 0 && (
-                  <tr>
-                    <td>
-                      {skillQuery.trim() ? 'Ninguna habilidad coincide.' : 'No hay libros de habilidad sin comprar.'}
-                    </td>
-                  </tr>
-                )}
-                {untrainedVisible.map((skill) => (
-                  <tr key={skill.name}>
-                    <td>{skill.name}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            trainedGroups.length === 0 ? (
+              <p className="empty">
+                {skillQuery.trim() ? 'Ninguna habilidad coincide.' : 'Sin habilidades en esta lista.'}
+              </p>
+            ) : (
+              trainedGroups.map((group) => (
+                <SkillGroupSection
+                  key={group.name}
+                  title={group.name}
+                  skills={group.skills}
+                  queued={queued}
+                  queueTarget={queueTarget}
+                  trainingTo={activeTraining}
+                  forceOpen={skillQuery.trim().length > 0}
+                />
+              ))
+            )
           )}
           {section === 'calc' && (
             <>
               <form className="calc" onSubmit={(event) => event.preventDefault()}>
                 <label>
                   Puntos de habilidad
-                  <input
+                  <ClearableInput
+                    fieldClassName="calc-field"
                     value={spText}
+                    onChange={setSpText}
                     inputMode="numeric"
                     placeholder="250000"
-                    onChange={(event) => setSpText(event.target.value)}
                   />
                 </label>
                 <p>{calcSummary}</p>
@@ -308,9 +366,9 @@ export const Skills = memo(function Skills() {
                   <tr>
                     <th>Habilidad</th>
                     <th className="num">SP restantes</th>
-                    <th className="pips-cell">Nivel</th>
-                    <th className="num">Tras el cálculo</th>
+                    <th className="num">Cálculo</th>
                     <th>Fin estimado</th>
+                    <th className="pips-cell">Nivel</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -325,14 +383,14 @@ export const Skills = memo(function Skills() {
                       className={row.covered > 0 && row.left === 0 ? 'training' : undefined}
                     >
                       <td>
-                        {row.job.name}
+                        <SkillTip typeId={row.job.typeId} name={row.job.name} />
                       </td>
                       <td className="num">{formatNum(row.job.remainingSp ?? 0)} SP</td>
+                      <td className="num">{formatNum(row.left)} SP</td>
+                      <td className="mono">{formatEveDate(row.finishAt)}</td>
                       <td className="pips-cell">
                         <Pips level={row.left === 0 ? row.job.to : row.job.from} />
                       </td>
-                      <td className="num">{formatNum(row.left)} SP</td>
-                      <td className="mono">{formatEveDate(row.finishAt)}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -1,28 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { Portrait } from './Portrait'
 import { useCharacter } from '../state/character'
-import { formatIsk, formatNum, formatSecurity, securityColor } from '../lib/format'
-
-function eveClock(date: Date): string {
-  return new Intl.DateTimeFormat('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23',
-    timeZone: 'UTC'
-  }).format(date)
-}
+import { Isk } from './Isk'
+import { formatEveClock, formatNum, formatSecurity, securityColor } from '../lib/format'
 
 export function TitleBar() {
   const { profiles, profile, select, remove, reorder, setAdding } = useCharacter()
   const character = profile?.character
-  const [now, setNow] = useState(() => eveClock(new Date()))
+  const [now, setNow] = useState(() => formatEveClock(new Date()))
   const [rosterOpen, setRosterOpen] = useState(false)
   const [dragId, setDragId] = useState<string | null>(null)
   const rosterRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(eveClock(new Date())), 1000)
+    const timer = window.setInterval(() => setNow(formatEveClock(new Date())), 1000)
     return () => window.clearInterval(timer)
   }, [])
 
@@ -46,7 +37,7 @@ export function TitleBar() {
     <>
     <header className="titlebar">
       <div className="brand">
-        <span className="brand-mark" aria-hidden="true" />
+        <img className="brand-mark" src="/icon.png" alt="" width={22} height={22} draggable={false} />
         <span className="brand-name">capsuleerOS</span>
       </div>
       <div className="title-status">
@@ -56,7 +47,9 @@ export function TitleBar() {
               <i style={{ color: securityColor(character.security) }}>{formatSecurity(character.security)}</i>
               {character.system}
             </span>
-            <span className="isk">{formatIsk(character.wallet)}</span>
+            <span className="isk">
+              <Isk value={character.wallet} />
+            </span>
           </>
         )}
         <span className="clock">EVE {now}</span>

@@ -1,4 +1,4 @@
-export type ModuleId = 'overview' | 'skills' | 'market' | 'inventory' | 'wallet' | 'prices'
+export type ModuleId = 'overview' | 'skills' | 'market' | 'inventory' | 'wallet' | 'prices' | 'settings'
 
 export type ModuleMeta = {
   title: string
@@ -11,12 +11,15 @@ export const MODULES: Record<ModuleId, ModuleMeta> = {
   inventory: { title: 'Inventario', blurb: 'Activos por ubicación' },
   market: { title: 'Mercado', blurb: 'Órdenes de compra y venta' },
   wallet: { title: 'Monedero', blurb: 'Saldo y diario' },
-  prices: { title: 'Market', blurb: 'Dónde está más barato un objeto' }
+  prices: { title: 'Market', blurb: 'Dónde está más barato un objeto' },
+  settings: { title: 'Ajustes', blurb: 'Preferencias de la interfaz' }
 }
 
 export const NEOCOM: ModuleId[] = ['overview', 'skills', 'inventory', 'market', 'wallet']
 
 export const UTILITIES: ModuleId[] = ['prices']
+
+export const SYSTEM: ModuleId[] = ['settings']
 
 export const MARKET_REGIONS = [
   { id: 10000002, name: 'The Forge' },
@@ -74,11 +77,15 @@ export type Character = {
 }
 
 export type Skill = {
+  typeId?: number
   name: string
   rank: number | null
   level: number
   sp: number
   nextSp: number | null
+  group?: string
+  /** Hay que comprar el libro de habilidad */
+  buy?: boolean
 }
 
 export type SkillGroup = {
@@ -87,6 +94,7 @@ export type SkillGroup = {
 }
 
 export type TrainingJob = {
+  typeId?: number
   name: string
   from: number
   to: number
@@ -138,6 +146,12 @@ export type JournalRow = {
   balance: number
 }
 
+/** Acelerador cerebral activo (ESI no da inicio/fin). */
+export type ActiveAccelerator = {
+  name: string
+  bonus: number
+}
+
 export type CharacterProfile = {
   id: string
   color: string
@@ -148,6 +162,10 @@ export type CharacterProfile = {
   unownedSkills: Skill[]
   trainingQueue: TrainingJob[]
   queueSummary: string
+  /** Acelerador cerebral activo, si se puede detectar. */
+  accelerator?: ActiveAccelerator | null
+  /** Varias colas activas en la app (multipilot aparente; ESI no da caducidad). */
+  multipilot?: { activeQueues: number } | null
   locations: AssetLocation[]
   journal: JournalRow[]
   orders: CharacterOrder[]

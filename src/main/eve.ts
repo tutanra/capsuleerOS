@@ -1,10 +1,42 @@
 import { shell } from 'electron'
 import { createHash, createPublicKey, createVerify, randomBytes } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
-import type { CharacterOrder, CharacterProfile, JournalRow, MarketBook, MarketBookOrder, MarketDay, MarketTypeHit, Skill, SkillGroup, TrainingJob } from '../renderer/src/types'
+import type {
+  ActiveAccelerator,
+  CharacterOrder,
+  CharacterProfile,
+  JournalRow,
+  MarketBook,
+  MarketBookOrder,
+  MarketDay,
+  MarketTypeHit,
+  Skill,
+  SkillGroup,
+  TrainingJob
+} from '../renderer/src/types'
 import marketTypes from '../shared/market-types.json'
 import { EVE_SCOPES, REDIRECT_PORT, REDIRECT_URI } from '../shared/eve'
 import { readStore, writeStore, type StoredAccount } from './store'
+
+const BASE_ATTRIBUTE = 17
+const REMAP_POOL = 14
+const DOGMA_CHARISMA = 175
+const DOGMA_INTELLIGENCE = 176
+const DOGMA_MEMORY = 177
+const DOGMA_PERCEPTION = 178
+const DOGMA_WILLPOWER = 179
+const DOGMA_BOOSTER_SLOT = 1087
+const CEREBRAL_SLOT = 10
+
+type AttrKey = 'charisma' | 'intelligence' | 'memory' | 'perception' | 'willpower'
+const ATTR_KEYS: AttrKey[] = ['charisma', 'intelligence', 'memory', 'perception', 'willpower']
+
+type DogmaBag = {
+  name: string
+  mods: Record<AttrKey, number>
+  boosterSlot: number | null
+  attrBonus: number | null
+}
 
 const COLORS = ['#d7b56a', '#6ec8d6', '#e17b7b', '#8ed07a', '#c9a0e0', '#e39a45']
 const ISSUERS = new Set(['https://login.eveonline.com', 'login.eveonline.com'])
@@ -219,9 +251,11 @@ async function mapPool<T, R>(items: T[], size: number, run: (item: T) => Promise
   return results
 }
 
-let skillCatalogTask: Promise<{ id: number; name: string }[]> | null = null
+type SkillCatalogEntry = { id: number; name: string; groupId: number; group: string }
 
-function skillCatalog(): Promise<{ id: number; name: string }[]> {
+let skillCatalogTask: Promise<SkillCatalogEntry[]> | null = null
+
+function skillCatalog(): Promise<SkillCatalogEntry[]> {
   skillCatalogTask ??= loadSkillCatalog().catch((error: unknown) => {
     skillCatalogTask = null
     throw error
@@ -229,16 +263,54 @@ function skillCatalog(): Promise<{ id: number; name: string }[]> {
   return skillCatalogTask
 }
 
-async function loadSkillCatalog(): Promise<{ id: number; name: string }[]> {
+async function loadSkillCatalog(): Promise<SkillCatalogEntry[]> {
   const category = await esi<{ groups: number[] }>('/universe/categories/16/')
   const groups = await mapPool(category.groups, 8, (id) =>
-    esi<{ published: boolean; types: number[] }>(`/universe/groups/${id}/`).catch(() => null)
+    esi<{ name: string; published: boolean; types: number[] }>(`/universe/groups/${id}/`)
+      .then((group) => ({ id, name: group.name, published: group.published, types: group.types }))
+      .catch(() => null)
   )
-  const typeIds = groups.flatMap((group) => (group?.published ? group.types : []))
-  const names = await namesOf(typeIds)
-  return [...names.entries()]
-    .map(([id, name]) => ({ id, name }))
-    .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+  const typed = groups.flatMap((group) =>
+    group?.published ? group.types.map((typeId) => ({ id: typeId, groupId: group.id, group: group.name })) : []
+  )
+  const names = await namesOf(typed.map((item) => item.id))
+  return typed
+    .map((item) => ({
+      id: item.id,
+      name: names.get(item.id) ?? `Habilidad ${item.id}`,
+      groupId: item.groupId,
+      group: item.group
+    }))
+    .sort((a, b) => a.group.localeCompare(b.group, 'en') || a.name.localeCompare(b.name, 'en'))
+}
+
+function groupOwnedSkills(
+  owned: EsiSkill[],
+  catalogById: Map<number, SkillCatalogEntry>,
+  skillNames: Map<number, string>
+): SkillGroup[] {
+  const byGroup = new Map<string, Skill[]>()
+  for (const skill of owned) {
+    const meta = catalogById.get(skill.skill_id)
+    const groupName = meta?.group ?? 'Other'
+    const row: Skill = {
+      typeId: skill.skill_id,
+      name: meta?.name ?? skillNames.get(skill.skill_id) ?? `Habilidad ${skill.skill_id}`,
+      rank: null,
+      level: skill.active_skill_level,
+      sp: skill.skillpoints_in_skill,
+      nextSp: null
+    }
+    const list = byGroup.get(groupName) ?? []
+    list.push(row)
+    byGroup.set(groupName, list)
+  }
+  return [...byGroup.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0], 'en'))
+    .map(([name, skills]) => ({
+      name,
+      skills: skills.sort((a, b) => a.name.localeCompare(b.name, 'en'))
+    }))
 }
 
 type EsiOrder = {
@@ -503,15 +575,106 @@ function remaining(iso?: string): string {
   return `${mins} min`
 }
 
-function formatWhen(iso: string): string {
-  return new Intl.DateTimeFormat('es-ES', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-    timeZone: 'UTC'
-  }).format(new Date(iso))
+const dogmaCache = new Map<number, DogmaBag>()
+
+async function dogmaOf(typeId: number): Promise<DogmaBag> {
+  const cached = dogmaCache.get(typeId)
+  if (cached) return cached
+  const row = await esi<{
+    name?: string
+    dogma_attributes?: Array<{ attribute_id: number; value: number }>
+  }>(`/universe/types/${typeId}/`).catch(() => null)
+  const byId = new Map((row?.dogma_attributes ?? []).map((a) => [a.attribute_id, a.value]))
+  const mods = {
+    charisma: Math.round(byId.get(DOGMA_CHARISMA) ?? 0),
+    intelligence: Math.round(byId.get(DOGMA_INTELLIGENCE) ?? 0),
+    memory: Math.round(byId.get(DOGMA_MEMORY) ?? 0),
+    perception: Math.round(byId.get(DOGMA_PERCEPTION) ?? 0),
+    willpower: Math.round(byId.get(DOGMA_WILLPOWER) ?? 0)
+  }
+  const slotRaw = byId.get(DOGMA_BOOSTER_SLOT)
+  const uniform = ATTR_KEYS.every((key) => mods[key] === mods.charisma) && mods.charisma > 0
+  const info: DogmaBag = {
+    name: row?.name ?? `Tipo ${typeId}`,
+    mods,
+    boosterSlot: slotRaw != null ? Math.round(slotRaw) : null,
+    attrBonus: uniform ? mods.charisma : null
+  }
+  dogmaCache.set(typeId, info)
+  return info
+}
+
+function acceleratorBonusFromAttributes(
+  attrs: Record<AttrKey, number>,
+  implantMods: Record<AttrKey, number>
+): number {
+  const excess = ATTR_KEYS.map((key) => attrs[key] - BASE_ATTRIBUTE - (implantMods[key] ?? 0))
+  if (excess.some((value) => !Number.isFinite(value))) return 0
+  const total = excess.reduce((sum, value) => sum + value, 0)
+  const raw = (total - REMAP_POOL) / ATTR_KEYS.length
+  if (!Number.isFinite(raw) || raw < 1) return 0
+  const bonus = Math.round(raw)
+  if (bonus < 1) return 0
+  if (Math.min(...excess) < bonus) return 0
+  if (Math.abs(raw - bonus) > 0.05) return 0
+  return bonus
+}
+
+async function resolveAccelerator(
+  characterId: number,
+  token: string
+): Promise<{ accelerator: ActiveAccelerator | null; implantsMissing: boolean }> {
+  const [attrs, implantIds] = await Promise.all([
+    optionalEsi<Record<AttrKey, number>>(`/characters/${characterId}/attributes/`, token),
+    optionalEsi<number[]>(`/characters/${characterId}/implants/`, token)
+  ])
+  const implantsMissing = implantIds === null
+  if (!attrs) return { accelerator: null, implantsMissing }
+
+  const implantList = implantIds ?? []
+  const dogmaRows = implantList.length > 0 ? await mapPool(implantList, 6, (id) => dogmaOf(id)) : []
+
+  // Si el acelerador sale en /implants (slot 10), usarlo directamente.
+  const cerebral = dogmaRows.find(
+    (row) => row.boosterSlot === CEREBRAL_SLOT && (row.attrBonus ?? 0) > 0
+  )
+  if (cerebral?.attrBonus) {
+    return {
+      accelerator: { name: cerebral.name, bonus: cerebral.attrBonus },
+      implantsMissing
+    }
+  }
+
+  // Si no, inferir el bonus uniforme restando solo implantes neurales (no boosters).
+  const implantMods: Record<AttrKey, number> = {
+    charisma: 0,
+    intelligence: 0,
+    memory: 0,
+    perception: 0,
+    willpower: 0
+  }
+  for (const row of dogmaRows) {
+    if (row.boosterSlot === CEREBRAL_SLOT) continue
+    for (const key of ATTR_KEYS) implantMods[key] += row.mods[key]
+  }
+
+  const bonus = acceleratorBonusFromAttributes(attrs, implantMods)
+  if (bonus < 1) return { accelerator: null, implantsMissing }
+  return {
+    accelerator: { name: `Acelerador cerebral +${bonus}`, bonus },
+    implantsMissing
+  }
+}
+
+function resolveMultipilot(): CharacterProfile['multipilot'] {
+  const store = readStore()
+  const now = Date.now()
+  const activeQueues = store.accounts.filter((account) => {
+    const job = account.profile.trainingQueue?.[0]
+    return job?.finishAt != null && Date.parse(job.finishAt) > now
+  }).length
+  if (activeQueues < 2) return null
+  return { activeQueues }
 }
 
 async function buildProfile(accessToken: string, claims: EveClaims): Promise<CharacterProfile> {
@@ -539,6 +702,13 @@ async function buildProfile(accessToken: string, claims: EveClaims): Promise<Cha
   if (!ship) missing.push('nave')
   if (wallet === null) missing.push('monedero')
 
+  const accelFinal = await resolveAccelerator(characterId, token).catch(() => ({
+    accelerator: null,
+    implantsMissing: false
+  }))
+  if (accelFinal.implantsMissing) missing.push('implantes')
+  const acceleratorResolved = accelFinal.accelerator
+
   const skillIds = [
     ...(skillsDoc?.skills.map((skill) => skill.skill_id) ?? []),
     ...(queueDoc?.map((job) => job.skill_id) ?? [])
@@ -556,32 +726,51 @@ async function buildProfile(accessToken: string, claims: EveClaims): Promise<Cha
       : Promise.resolve(null),
     location?.structure_id ? optionalEsi<{ name: string }>(`/universe/structures/${location.structure_id}/`, token) : Promise.resolve(null)
   ])
-  const owned = [...(skillsDoc?.skills ?? [])].sort((a, b) => b.skillpoints_in_skill - a.skillpoints_in_skill)
-  const skills: Skill[] = owned.map((skill) => ({
-    name: skillNames.get(skill.skill_id) ?? `Habilidad ${skill.skill_id}`,
-    rank: null,
-    level: skill.active_skill_level,
-    sp: skill.skillpoints_in_skill,
-    nextSp: null
-  }))
-  const skillGroups: SkillGroup[] = [{ name: 'Habilidades', skills }]
-  const ownedIds = new Set((skillsDoc?.skills ?? []).map((skill) => skill.skill_id))
+  const owned = [...(skillsDoc?.skills ?? [])]
+  const ownedIds = new Set(owned.map((skill) => skill.skill_id))
+  let catalog: SkillCatalogEntry[] = []
   let unownedSkills: Skill[] = []
   try {
-    const [catalog, assets] = await Promise.all([catalogTask, assetsTask])
+    const [catalogRows, assets] = await Promise.all([catalogTask, assetsTask])
+    catalog = catalogRows
     const assetIds = assets ? new Set(assets.map((asset) => asset.type_id)) : null
     unownedSkills = catalog
       .filter((skill) => !ownedIds.has(skill.id) && !assetIds?.has(skill.id))
       .map((skill) => ({
+        typeId: skill.id,
         name: skill.name,
         rank: null,
         level: 0,
         sp: 0,
-        nextSp: null
+        nextSp: null,
+        group: skill.group,
+        buy: true
       }))
   } catch {
+    catalog = []
     unownedSkills = []
   }
+  const catalogById = new Map(catalog.map((skill) => [skill.id, skill]))
+  const skillGroups: SkillGroup[] =
+    owned.length === 0
+      ? []
+      : catalogById.size > 0
+        ? groupOwnedSkills(owned, catalogById, skillNames)
+        : [
+            {
+              name: 'Habilidades',
+              skills: owned
+                .map((skill) => ({
+                  typeId: skill.skill_id,
+                  name: skillNames.get(skill.skill_id) ?? `Habilidad ${skill.skill_id}`,
+                  rank: null,
+                  level: skill.active_skill_level,
+                  sp: skill.skillpoints_in_skill,
+                  nextSp: null
+                }))
+                .sort((a, b) => a.name.localeCompare(b.name, 'en'))
+            }
+          ]
 
   const spById = new Map((skillsDoc?.skills ?? []).map((skill) => [skill.skill_id, skill.skillpoints_in_skill]))
   const trainingQueue: TrainingJob[] = (queueDoc ?? [])
@@ -594,6 +783,7 @@ async function buildProfile(accessToken: string, claims: EveClaims): Promise<Cha
       const progress = end > start ? Math.min(1, Math.max(0, (current - start) / (end - start))) : 0
       const remainingSp = Math.max(0, end - Math.max(current, start))
       return {
+        typeId: job.skill_id,
         name: skillNames.get(job.skill_id) ?? `Habilidad ${job.skill_id}`,
         from: Math.max(0, job.finished_level - 1),
         to: job.finished_level,
@@ -633,7 +823,7 @@ async function buildProfile(accessToken: string, claims: EveClaims): Promise<Cha
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 40)
     .map((row) => ({
-      when: formatWhen(row.date),
+      when: row.date,
       ref: row.ref_type.replaceAll('_', ' '),
       party: row.description || '—',
       amount: row.amount,
@@ -673,6 +863,8 @@ async function buildProfile(accessToken: string, claims: EveClaims): Promise<Cha
     unownedSkills,
     trainingQueue,
     queueSummary,
+    accelerator: acceleratorResolved,
+    multipilot: resolveMultipilot(),
     locations,
     journal,
     orders
@@ -1389,4 +1581,73 @@ export function saveSettings(input: { clientId: string; clientSecret?: string })
   if (input.clientSecret?.trim()) store.clientSecret = input.clientSecret.trim()
   writeStore(store)
   return publicSettings()
+}
+
+export type SkillRequirement = { typeId: number; name: string; level: number }
+export type SkillDescriptionInfo = { description: string; requirements: SkillRequirement[] }
+
+const skillDescriptionCache = new Map<number, SkillDescriptionInfo>()
+
+/** Pares dogma: skill type id + nivel mínimo (hasta 6 requisitos). */
+const SKILL_REQ_ATTRS: Array<{ skill: number; level: number }> = [
+  { skill: 182, level: 277 },
+  { skill: 183, level: 278 },
+  { skill: 184, level: 279 },
+  { skill: 1285, level: 1286 },
+  { skill: 1289, level: 1287 },
+  { skill: 1290, level: 1288 }
+]
+
+function cleanSkillDescription(raw: string): string {
+  return raw
+    .replace(/\r\n/g, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function parseSkillRequirements(
+  attrs: Array<{ attribute_id: number; value: number }> | undefined
+): Array<{ typeId: number; level: number }> {
+  if (!attrs?.length) return []
+  const byId = new Map(attrs.map((row) => [row.attribute_id, row.value]))
+  const out: Array<{ typeId: number; level: number }> = []
+  for (const pair of SKILL_REQ_ATTRS) {
+    const typeId = Math.round(byId.get(pair.skill) ?? 0)
+    const level = Math.round(byId.get(pair.level) ?? 0)
+    if (typeId > 0 && level > 0) out.push({ typeId, level: Math.min(5, Math.max(1, level)) })
+  }
+  return out
+}
+
+export async function skillDescription(typeId: number): Promise<SkillDescriptionInfo> {
+  const empty: SkillDescriptionInfo = { description: '', requirements: [] }
+  if (!Number.isInteger(typeId) || typeId <= 0) return empty
+  const cached = skillDescriptionCache.get(typeId)
+  if (cached != null) return cached
+  try {
+    const row = await esi<{
+      description?: string
+      dogma_attributes?: Array<{ attribute_id: number; value: number }>
+    }>(`/universe/types/${typeId}/?language=es`)
+    const description = cleanSkillDescription(row.description ?? '')
+    const rawReqs = parseSkillRequirements(row.dogma_attributes)
+    const names = rawReqs.length > 0 ? await namesOf(rawReqs.map((r) => r.typeId)) : new Map<number, string>()
+    const requirements: SkillRequirement[] = rawReqs.map((req) => ({
+      typeId: req.typeId,
+      name: names.get(req.typeId) ?? `Habilidad ${req.typeId}`,
+      level: req.level
+    }))
+    const info = { description, requirements }
+    skillDescriptionCache.set(typeId, info)
+    return info
+  } catch {
+    skillDescriptionCache.set(typeId, empty)
+    return empty
+  }
 }

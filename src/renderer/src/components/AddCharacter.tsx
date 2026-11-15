@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { EVE_SCOPES, REDIRECT_URI } from '../../../shared/eve'
+import { ClearableInput } from './ClearableInput'
 import { Spinner } from './Spinner'
 import { useCharacter } from '../state/character'
 
@@ -77,7 +78,12 @@ export function AddCharacter({ onClose }: Props) {
         {editing ? (
           <label>
             Client ID
-            <input value={clientId} onChange={(event) => setClientId(event.target.value)} autoComplete="off" spellCheck={false} />
+            <ClearableInput
+              value={clientId}
+              onChange={setClientId}
+              autoComplete="off"
+              spellCheck={false}
+            />
           </label>
         ) : (
           <p className="saved-app">
@@ -90,9 +96,9 @@ export function AddCharacter({ onClose }: Props) {
         {editing && (
           <label>
             Client Secret {hasSecret ? '(ya hay uno guardado)' : '(opcional)'}
-            <input
+            <ClearableInput
               value={clientSecret}
-              onChange={(event) => setClientSecret(event.target.value)}
+              onChange={setClientSecret}
               type="password"
               autoComplete="off"
               placeholder={hasSecret ? 'Déjalo vacío para conservar el anterior' : ''}
