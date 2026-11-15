@@ -13,8 +13,8 @@ import { useCharacter } from '../state/character'
 
 const cache = new Map<number, SkillTipInfo>()
 const GAP = 6
+const EDGE = 8
 const MAX_WIDTH = 420
-const MAX_HEIGHT = 240
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'] as const
 
 type SkillTipInfo = {
@@ -115,15 +115,18 @@ export function SkillTip({ typeId, name, children }: Props) {
       const z = uiZoom()
       const viewW = window.visualViewport?.width ?? window.innerWidth
       const viewH = window.visualViewport?.height ?? window.innerHeight
-      const widthVisual = Math.min(MAX_WIDTH, viewW - 16)
-      const spaceBelow = viewH - rect.bottom - GAP - 8
-      const spaceAbove = rect.top - GAP - 8
-      const preferBelow = spaceBelow >= 120 || spaceBelow >= spaceAbove
-      const maxHeightVisual = Math.min(MAX_HEIGHT, Math.max(96, preferBelow ? spaceBelow : spaceAbove))
+      const widthVisual = Math.min(MAX_WIDTH, viewW - EDGE * 2)
+      // Mitad inferior → tip arriba; mitad superior → tip abajo.
+      const anchorMid = (rect.top + rect.bottom) / 2
+      const placeBelow = anchorMid < viewH / 2
+      const spaceBelow = Math.max(0, viewH - rect.bottom - GAP - EDGE)
+      const spaceAbove = Math.max(0, rect.top - GAP - EDGE)
+      // Usa casi todo el hueco disponible para evitar scrollbar.
+      const maxHeightVisual = Math.max(120, placeBelow ? spaceBelow : spaceAbove)
       let leftVisual = rect.left
-      leftVisual = Math.min(leftVisual, viewW - widthVisual - 8)
-      leftVisual = Math.max(8, leftVisual)
-      const placeNext: Place = preferBelow
+      leftVisual = Math.min(leftVisual, viewW - widthVisual - EDGE)
+      leftVisual = Math.max(EDGE, leftVisual)
+      const placeNext: Place = placeBelow
         ? {
             top: (rect.bottom + GAP) / z,
             left: leftVisual / z,

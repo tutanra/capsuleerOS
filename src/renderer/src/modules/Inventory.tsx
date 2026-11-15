@@ -250,7 +250,6 @@ export const Inventory = memo(function Inventory() {
             )}
           </div>
           <div className="inv-loc-foot" aria-label="Total de la ubicación">
-            <span className="inv-loc-name">{searchEverywhere ? 'Vista' : location.name}</span>
             <span className="inv-stat">
               <em>Objetos</em>
               <strong className="num">{formatNum(locationTotals.count)}</strong>

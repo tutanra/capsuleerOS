@@ -572,18 +572,11 @@ tr.cheapest td { background: rgba(157, 206, 160, 0.14); }
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
+  justify-content: flex-end;
   gap: 12px 18px;
   padding: 8px 12px;
   border-top: 1px solid rgba(201, 164, 92, 0.28);
   background: rgba(8, 12, 16, 0.96);
-}
-.inv-loc-name {
-  color: var(--gold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-size: var(--fs-ui);
-  font-weight: 600;
-  margin-right: auto;
 }
 .inv-loc-foot .inv-stat {
   justify-content: flex-end;
@@ -631,10 +624,11 @@ tr.cheapest td { background: rgba(157, 206, 160, 0.14); }
   font-size: calc(1em * var(--mono-scale));
 }
 
-table { width: 100%; border-collapse: collapse; font-size: var(--fs); }
+table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--fs); }
 th {
   position: sticky;
   top: 0;
+  z-index: 5;
   text-align: left;
   font-size: var(--fs-th);
   letter-spacing: 0.12em;
@@ -644,8 +638,15 @@ th {
   padding: 7px 8px;
   background: #16202b;
   border-bottom: 1px solid rgba(201, 164, 92, 0.28);
+  box-shadow: 0 1px 0 rgba(201, 164, 92, 0.28);
 }
-td { padding: 6px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); font-size: var(--fs); }
+td {
+  position: relative;
+  z-index: 0;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: var(--fs);
+}
 tr:hover td { background: rgba(110, 200, 214, 0.06); }
 tr.queued td .skill-tip-name {
   color: var(--dim);
@@ -684,9 +685,12 @@ td em.buy-tag { color: var(--gold); }
 tr.skill-buy td { color: var(--muted); }
 .skill-tip {
   position: relative;
+  z-index: 0;
   display: inline;
 }
 .skill-tip-name {
+  position: relative;
+  z-index: 0;
   border: 0;
   background: transparent;
   padding: 0;
@@ -798,7 +802,17 @@ tr.skill-buy td { color: var(--muted); }
   color: var(--gold);
   font-size: var(--fs);
 }
-.skills-table th, .skills-table td { white-space: nowrap; }
+.skills-table th,
+.skills-table td { white-space: nowrap; }
+.skills-table thead th {
+  z-index: 6;
+  background: #16202b;
+}
+.skill-scroll .skills-table tbody td,
+.skill-scroll .skills-table tbody .skill-tip,
+.skill-scroll .skills-table tbody .skill-tip-name {
+  z-index: 0;
+}
 .pips-cell { text-align: right; width: 92px; }
 .pips-cell .pips { justify-content: flex-end; }
 .calc {
