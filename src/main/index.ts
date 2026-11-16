@@ -1,7 +1,8 @@
 import { app, BrowserWindow, Menu, ipcMain, screen, type Rectangle } from 'electron'
 import { join } from 'node:path'
+import { addDiscordChannel, hideDiscord, listDiscordChannels, logoutDiscord, openDiscordChannel, removeDiscordChannel, selectDiscordChannel, showDiscord, watchDiscordSession } from './discord'
 import { addCharacter, cachedCharacters, cancelLogin, characterMarketRegion, hasStoredCharacters, itemHistory, itemMarket, listCharacters, publicSettings, removeCharacter, reorderCharacters, saveSettings, searchMarketTypes, skillDescription } from './eve'
-import { readStore, writeStore, type WindowState } from './store'
+import { MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH, readStore, writeStore, type WindowState } from './store'
 
 Menu.setApplicationMenu(null)
 
@@ -44,8 +45,8 @@ function createWindow(): void {
     ...(state.x != null && state.y != null ? { x: state.x, y: state.y } : {}),
     width: state.width,
     height: state.height,
-    minWidth: 1100,
-    minHeight: 700,
+    minWidth: MIN_WINDOW_WIDTH,
+    minHeight: MIN_WINDOW_HEIGHT,
     show: false,
     frame: false,
     backgroundColor: '#07090d',
@@ -61,6 +62,7 @@ function createWindow(): void {
   })
 
   win.on('close', () => rememberWindow(win))
+  watchDiscordSession(win)
 
   win.on('ready-to-show', () => {
     if (state.maximized) win.maximize()
@@ -110,6 +112,20 @@ ipcMain.handle('market:orders', (_event, characterId: number, regionId: number, 
 )
 ipcMain.handle('market:history', (_event, regionId: number, typeId: number) => itemHistory(regionId, typeId))
 ipcMain.handle('skills:description', (_event, typeId: number) => skillDescription(typeId))
+ipcMain.handle('discord:list', () => listDiscordChannels())
+ipcMain.handle('discord:add', (_event, input: unknown) => addDiscordChannel(input))
+ipcMain.handle('discord:remove', (_event, id: unknown) => removeDiscordChannel(id))
+ipcMain.handle('discord:select', (_event, id: unknown) => selectDiscordChannel(id))
+ipcMain.handle('discord:show', (event, bounds: unknown) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (win) showDiscord(win, bounds)
+})
+ipcMain.handle('discord:hide', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (win) hideDiscord(win)
+})
+ipcMain.handle('discord:open', (_event, id: unknown) => openDiscordChannel(id))
+ipcMain.handle('discord:logout', () => logoutDiscord())
 
 app.whenReady().then(() => {
   createWindow()

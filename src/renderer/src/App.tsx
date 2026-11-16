@@ -3,6 +3,7 @@ import { AddCharacter } from './components/AddCharacter'
 import { Spinner } from './components/Spinner'
 import { Neocom } from './components/Neocom'
 import { TitleBar } from './components/TitleBar'
+import { Fleets } from './modules/Fleets'
 import { Inventory } from './modules/Inventory'
 import { ItemMarket } from './modules/ItemMarket'
 import { Market } from './modules/Market'
@@ -16,7 +17,7 @@ import { MODULES, type ModuleId } from './types'
 export function App() {
   const [module, setModule] = useState<ModuleId>('overview')
   const { profile, adding, setAdding, loadingCharacters, charactersReady } = useCharacter()
-  const needsCharacter = module !== 'settings' && module !== 'prices'
+  const needsCharacter = module !== 'settings' && module !== 'prices' && module !== 'fleets'
 
   return (
     <div className="shell">
@@ -25,13 +26,18 @@ export function App() {
         <Neocom active={module} onSelect={setModule} />
         <main className="workspace">
           <section className="stage" aria-label={MODULES[module].title}>
-            <header className="stage-title">{MODULES[module].title}</header>
+            <header className="stage-title" hidden={module === 'inventory' && !!profile}>
+              {MODULES[module].title}
+            </header>
             <div className="stage-body">
               <div className="module-pane" hidden={module !== 'settings'}>
                 <Settings />
               </div>
               <div className="module-pane" hidden={module !== 'prices'}>
                 <ItemMarket />
+              </div>
+              <div className="module-pane" hidden={module !== 'fleets'}>
+                <Fleets active={module === 'fleets'} />
               </div>
               {needsCharacter && loadingCharacters && (
                 <div className="empty-app">

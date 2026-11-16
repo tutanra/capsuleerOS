@@ -68,9 +68,11 @@ type EsiQueue = {
   skill_id: number
   finished_level: number
   queue_position: number
+  start_date?: string
   finish_date?: string
   level_start_sp?: number
   level_end_sp?: number
+  training_start_sp?: number
 }
 
 type EsiAsset = {
@@ -779,7 +781,8 @@ async function buildProfile(accessToken: string, claims: EveClaims): Promise<Cha
     .map((job) => {
       const start = job.level_start_sp ?? 0
       const end = job.level_end_sp ?? start
-      const current = spById.get(job.skill_id) ?? start
+      const trainingStartSp = job.training_start_sp ?? spById.get(job.skill_id) ?? start
+      const current = spById.get(job.skill_id) ?? trainingStartSp
       const progress = end > start ? Math.min(1, Math.max(0, (current - start) / (end - start))) : 0
       const remainingSp = Math.max(0, end - Math.max(current, start))
       return {
@@ -790,7 +793,11 @@ async function buildProfile(accessToken: string, claims: EveClaims): Promise<Cha
         progress,
         remaining: remaining(job.finish_date),
         remainingSp,
-        finishAt: job.finish_date ?? null
+        finishAt: job.finish_date ?? null,
+        startAt: job.start_date ?? null,
+        levelStartSp: start,
+        levelEndSp: end,
+        trainingStartSp
       }
     })
   const lastFinish = [...(queueDoc ?? [])].sort((a, b) => b.queue_position - a.queue_position)[0]?.finish_date

@@ -3,6 +3,7 @@ import { ClearableInput } from '../components/ClearableInput'
 import { Isk } from '../components/Isk'
 import { TypeIcon } from '../components/TypeIcon'
 import { formatNum } from '../lib/format'
+import { usePaneWidth } from '../lib/paneWidth'
 import { useCharacter } from '../state/character'
 import type { Asset, AssetLocation } from '../types'
 
@@ -147,6 +148,7 @@ export const Inventory = memo(function Inventory() {
   const [query, setQuery] = useState('')
   const [allLocations, setAllLocations] = useState(false)
   const [locationId, setLocationId] = useState('')
+  const nav = usePaneWidth('capsuleeros.inventoryNav', 210, 140, 640)
   const places = locations.length > 0 ? locations : [{ id: 'empty', name: 'Sin activos', detail: '', assets: [] }]
   const location = places.find((item) => item.id === locationId) ?? places[0]!
   const needle = query.trim().toLowerCase()
@@ -181,6 +183,23 @@ export const Inventory = memo(function Inventory() {
 
   return (
     <div className="stack">
+      <header className="stage-title">
+        <span>Inventario</span>
+        <div className="inv-summary" aria-label="Totales de todas las ubicaciones">
+          <span className="inv-stat">
+            <em>Objetos</em>
+            <strong className="num">{formatNum(inventoryTotals.count)}</strong>
+          </span>
+          <span className="inv-stat">
+            <em>Volumen</em>
+            <strong className="num">{formatVolume(inventoryTotals.volume)} m³</strong>
+          </span>
+          <span className="inv-stat">
+            <em>Estimado</em>
+            <Isk value={inventoryTotals.value} />
+          </span>
+        </div>
+      </header>
       <div className="toolbar">
         <div className="toolbar-start">
           <ClearableInput
@@ -198,22 +217,8 @@ export const Inventory = memo(function Inventory() {
             Todas las ubicaciones
           </label>
         </div>
-        <div className="inv-summary" aria-label="Totales de todas las ubicaciones">
-          <span className="inv-stat">
-            <em>Objetos</em>
-            <strong className="num">{formatNum(inventoryTotals.count)}</strong>
-          </span>
-          <span className="inv-stat">
-            <em>Volumen</em>
-            <strong className="num">{formatVolume(inventoryTotals.volume)} m³</strong>
-          </span>
-          <span className="inv-stat">
-            <em>Estimado</em>
-            <Isk value={inventoryTotals.value} />
-          </span>
-        </div>
       </div>
-      <div className="stack-main split">
+      <div ref={nav.ref} className="stack-main split inv-split" style={nav.style}>
         <div className="pane nav-list">
           {places.map((item) => {
             const filtered = filteredPlaces.find((place) => place.id === item.id)
@@ -235,6 +240,19 @@ export const Inventory = memo(function Inventory() {
             )
           })}
         </div>
+        <div
+          className="pane-resize"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Ancho de las ubicaciones"
+          aria-valuemin={nav.min}
+          aria-valuemax={nav.max}
+          aria-valuenow={nav.width}
+          tabIndex={0}
+          onPointerDown={nav.onPointerDown}
+          onPointerMove={nav.onPointerMove}
+          onKeyDown={nav.onKeyDown}
+        />
         <div className="inv-list-pane">
           <div className="inv-list-scroll pane">
             {searchEverywhere ? (

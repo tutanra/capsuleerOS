@@ -2,12 +2,16 @@ import { app } from 'electron'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { CharacterProfile } from '../renderer/src/types'
+import { parseDiscordChannelUrl, type DiscordChannel } from '../shared/discord'
 
 export type StoredAccount = {
   characterId: number
   refreshToken: string
   profile: CharacterProfile
 }
+
+export const MIN_WINDOW_WIDTH = 925
+export const MIN_WINDOW_HEIGHT = 700
 
 export type WindowState = {
   x?: number
@@ -22,6 +26,8 @@ export type StoreFile = {
   clientSecret: string
   accounts: StoredAccount[]
   window?: WindowState
+  discordChannels: DiscordChannel[]
+  discordActiveId: string
 }
 
 function readWindow(value: unknown): WindowState | undefined {
@@ -35,14 +41,29 @@ function readWindow(value: unknown): WindowState | undefined {
   return {
     x: Number.isFinite(x) ? Math.round(x) : undefined,
     y: Number.isFinite(y) ? Math.round(y) : undefined,
-    width: Math.max(1100, Math.round(width)),
-    height: Math.max(700, Math.round(height)),
+    width: Math.max(MIN_WINDOW_WIDTH, Math.round(width)),
+    height: Math.max(MIN_WINDOW_HEIGHT, Math.round(height)),
     maximized: raw.maximized === true
   }
 }
 
+function readDiscordChannels(value: unknown): DiscordChannel[] {
+  if (!Array.isArray(value)) return []
+  const channels: DiscordChannel[] = []
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue
+    const raw = item as Partial<DiscordChannel>
+    if (typeof raw.id !== 'string' || !raw.id || typeof raw.name !== 'string' || typeof raw.url !== 'string') continue
+    const parsed = parseDiscordChannelUrl(raw.url)
+    const name = raw.name.trim().replace(/\s+/g, ' ').slice(0, 60)
+    if (!parsed || !name) continue
+    channels.push({ id: raw.id, name, url: parsed.url })
+  }
+  return channels
+}
+
 function emptyStore(): StoreFile {
-  return { clientId: '', clientSecret: '', accounts: [] }
+  return { clientId: '', clientSecret: '', accounts: [], discordChannels: [], discordActiveId: '' }
 }
 
 function filePath(): string {
@@ -56,7 +77,9 @@ export function readStore(): StoreFile {
       clientId: parsed.clientId ?? '',
       clientSecret: parsed.clientSecret ?? '',
       accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
-      window: readWindow(parsed.window)
+      window: readWindow(parsed.window),
+      discordChannels: readDiscordChannels(parsed.discordChannels),
+      discordActiveId: typeof parsed.discordActiveId === 'string' ? parsed.discordActiveId : ''
     }
   } catch {
     return emptyStore()

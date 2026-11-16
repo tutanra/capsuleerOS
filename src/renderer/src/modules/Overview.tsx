@@ -3,6 +3,7 @@ import { Portrait } from '../components/Portrait'
 import { Isk } from '../components/Isk'
 import { Pips } from '../components/Pips'
 import { formatEveDate, formatNum, formatSecurity, securityColor } from '../lib/format'
+import { studiedPercent, useNow } from '../lib/training'
 import { useCharacter } from '../state/character'
 import { MODULES, NEOCOM, type ModuleId } from '../types'
 
@@ -12,11 +13,13 @@ type Props = {
 
 export const Overview = memo(function Overview({ onOpen }: Props) {
   const { profile } = useCharacter()
+  const now = useNow()
   if (!profile) return null
   const { character, trainingQueue, queueSummary, accelerator, multipilot } = profile
   const current = trainingQueue[0]
   const training =
-    current != null && current.finishAt != null && Date.parse(current.finishAt) > Date.now()
+    current != null && current.finishAt != null && Date.parse(current.finishAt) > now
+  const studied = current && training ? studiedPercent(current, now) : null
 
   return (
     <div className="overview">
@@ -95,14 +98,17 @@ export const Overview = memo(function Overview({ onOpen }: Props) {
                   {training && <i className="train-blink" title="Entrenando" />}
                   {current.name}
                 </strong>
-                <Pips
-                  level={current.from}
-                  queueTo={current.to}
-                  trainingTo={training ? current.to : undefined}
-                />
+                <span className="train-now-meta">
+                  {studied != null && <span className="train-pct">{studied}%</span>}
+                  <Pips
+                    level={current.from}
+                    queueTo={current.to}
+                    trainingTo={training ? current.to : undefined}
+                  />
+                </span>
               </div>
               <div className="bar" aria-hidden="true">
-                <span style={{ width: `${Math.round(current.progress * 100)}%` }} />
+                <span style={{ width: `${studied ?? Math.round(current.progress * 100)}%` }} />
               </div>
               <div className="train-eta">
                 <span className="train-eta-left dim">Restante {current.remaining}</span>

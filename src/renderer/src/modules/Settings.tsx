@@ -1,5 +1,4 @@
 import {
-  CLOCK_MODE_DEFAULT,
   UI_SCALE_DEFAULT,
   UI_SCALE_MAX,
   UI_SCALE_MIN,
@@ -82,11 +81,6 @@ export function Settings() {
                 Local
               </button>
             </span>
-            {clockMode !== CLOCK_MODE_DEFAULT && (
-              <button type="button" className="settings-reset" onClick={() => setClockModePref(CLOCK_MODE_DEFAULT)}>
-                Restablecer
-              </button>
-            )}
           </span>
         </div>
       </div>

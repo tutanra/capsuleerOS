@@ -82,6 +82,15 @@ export function ModuleIcon({ id }: IconProps) {
     )
   }
 
+  if (id === 'fleets') {
+    return (
+      <svg {...common}>
+        <path d="M12 3.5l7.5 15h-15L12 3.5z" />
+        <path d="M12 8.5l4.2 8.2H7.8L12 8.5z" />
+      </svg>
+    )
+  }
+
   if (id === 'settings') {
     return (
       <svg {...common}>

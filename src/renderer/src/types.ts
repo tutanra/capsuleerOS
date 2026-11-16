@@ -1,4 +1,4 @@
-export type ModuleId = 'overview' | 'skills' | 'market' | 'inventory' | 'wallet' | 'prices' | 'settings'
+export type ModuleId = 'overview' | 'skills' | 'market' | 'inventory' | 'wallet' | 'prices' | 'fleets' | 'settings'
 
 export type ModuleMeta = {
   title: string
@@ -12,12 +12,13 @@ export const MODULES: Record<ModuleId, ModuleMeta> = {
   market: { title: 'Mercado', blurb: 'Órdenes de compra y venta' },
   wallet: { title: 'Monedero', blurb: 'Saldo y diario' },
   prices: { title: 'Market', blurb: 'Dónde está más barato un objeto' },
+  fleets: { title: 'Flotas', blurb: 'Canales de Discord de la alianza' },
   settings: { title: 'Ajustes', blurb: 'Preferencias de la interfaz' }
 }
 
 export const NEOCOM: ModuleId[] = ['overview', 'skills', 'inventory', 'market', 'wallet']
 
-export const UTILITIES: ModuleId[] = ['prices']
+export const UTILITIES: ModuleId[] = ['prices', 'fleets']
 
 export const SYSTEM: ModuleId[] = ['settings']
 
@@ -102,6 +103,11 @@ export type TrainingJob = {
   remaining: string
   remainingSp: number
   finishAt: string | null
+  /** Inicio del entrenamiento de este nivel, si está en curso. */
+  startAt?: string | null
+  levelStartSp?: number
+  levelEndSp?: number
+  trainingStartSp?: number
 }
 
 export type CharacterOrder = {

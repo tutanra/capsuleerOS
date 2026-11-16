@@ -3,6 +3,7 @@ import { ClearableInput } from '../components/ClearableInput'
 import { Isk } from '../components/Isk'
 import { TypeIcon } from '../components/TypeIcon'
 import { formatEveDate, formatNum } from '../lib/format'
+import { useSplitFraction } from '../lib/paneWidth'
 import { useCharacter } from '../state/character'
 import { useSettings } from '../state/settings'
 import type { CharacterOrder } from '../types'
@@ -82,8 +83,7 @@ export const Market = memo(function Market() {
     .sort((a, b) => a.name.localeCompare(b.name, 'es') || b.price - a.price)
   const sellValue = sells.reduce((sum, order) => sum + orderValue(order), 0)
   const buyValue = buys.reduce((sum, order) => sum + orderValue(order), 0)
-  const sellWeight = Math.max(sells.length, 1)
-  const buyWeight = Math.max(buys.length, 1)
+  const split = useSplitFraction('capsuleeros.marketOrders', 0.5, 0.18, 0.82)
   if (!profile) return null
   const denied = profile.notice?.includes('mercado') ?? false
   const emptySell = denied ? 'El personaje aún no autorizó la lectura de órdenes.' : 'Sin órdenes de venta.'
@@ -104,14 +104,27 @@ export const Market = memo(function Market() {
           </button>
         )}
       </div>
-      <div className="orders-split">
-        <section className="order-block" style={{ flexGrow: sellWeight }}>
+      <div ref={split.ref} className="orders-split" style={split.style}>
+        <section className="order-block">
           <p className="section-label sell">Ventas · {formatNum(sells.length)}</p>
           <div className="pane">
             <OrderTable orders={sells} empty={emptySell} />
           </div>
         </section>
-        <section className="order-block" style={{ flexGrow: buyWeight }}>
+        <div
+          className="pane-resize row"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Altura de ventas y compras"
+          aria-valuemin={Math.round(split.min * 100)}
+          aria-valuemax={Math.round(split.max * 100)}
+          aria-valuenow={split.percent}
+          tabIndex={0}
+          onPointerDown={split.onPointerDown}
+          onPointerMove={split.onPointerMove}
+          onKeyDown={split.onKeyDown}
+        />
+        <section className="order-block">
           <p className="section-label buy">Compras · {formatNum(buys.length)}</p>
           <div className="pane">
             <OrderTable orders={buys} empty={emptyBuy} />

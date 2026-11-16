@@ -3,6 +3,8 @@ import { ClearableInput } from '../components/ClearableInput'
 import { Pips } from '../components/Pips'
 import { SkillTip } from '../components/SkillTip'
 import { formatEveDate, formatNum } from '../lib/format'
+import { usePaneWidth } from '../lib/paneWidth'
+import { studiedPercent, useNow } from '../lib/training'
 import { useCharacter } from '../state/character'
 import { useSettings } from '../state/settings'
 import type { Skill, TrainingJob } from '../types'
@@ -98,12 +100,14 @@ function SkillRows({
   skills,
   queued,
   queueTarget,
-  trainingTo
+  trainingTo,
+  studied
 }: {
   skills: Skill[]
   queued: Set<string>
   queueTarget: Map<string, number>
   trainingTo?: { name: string; to: number }
+  studied?: number
 }) {
   return (
     <table className="skills-table dense">
@@ -121,6 +125,7 @@ function SkillRows({
               <SkillTip typeId={skill.typeId} name={skill.name}>
                 {skill.buy ? <em className="buy-tag"> comprar</em> : queued.has(skill.name) && <em> en cola</em>}
               </SkillTip>
+              {studied != null && trainingTo?.name === skill.name && <span className="train-pct">{studied}%</span>}
             </td>
             <td className="num">{skill.buy ? '—' : `${formatNum(skill.sp)} SP`}</td>
             <td className="pips-cell">
@@ -147,6 +152,7 @@ function SkillGroupSection({
   queued,
   queueTarget,
   trainingTo,
+  studied,
   forceOpen
 }: {
   title: string
@@ -154,6 +160,7 @@ function SkillGroupSection({
   queued: Set<string>
   queueTarget: Map<string, number>
   trainingTo?: { name: string; to: number }
+  studied?: number
   forceOpen: boolean
 }) {
   const [open, setOpen] = useState(true)
@@ -171,7 +178,7 @@ function SkillGroupSection({
         <span className="nav-meta">{skills.length}</span>
       </button>
       {expanded && (
-        <SkillRows skills={skills} queued={queued} queueTarget={queueTarget} trainingTo={trainingTo} />
+        <SkillRows skills={skills} queued={queued} queueTarget={queueTarget} trainingTo={trainingTo} studied={studied} />
       )}
     </>
   )
@@ -185,6 +192,7 @@ export const Skills = memo(function Skills() {
   const [section, setSection] = useState<SectionId>('queue')
   const [spText, setSpText] = useState('')
   const [skillQuery, setSkillQuery] = useState('')
+  const nav = usePaneWidth('capsuleeros.skillsNav', 228, 132, 420)
   const trained = skillGroups.flatMap((group) => group.skills)
   const untrained = profile?.unownedSkills ?? []
   const trainedGroups = useMemo(() => {
@@ -215,6 +223,7 @@ export const Skills = memo(function Skills() {
     }
     return map
   }, [trainingQueue])
+  const now = useNow()
   const points = parseSp(spText)
   const projection = useMemo(() => projectQueue(trainingQueue, points), [trainingQueue, points])
   if (!profile) return null
@@ -253,7 +262,7 @@ export const Skills = memo(function Skills() {
 
   return (
     <div className="stack">
-      <div className="stack-main split skills-split">
+      <div ref={nav.ref} className="stack-main split skills-split" style={nav.style}>
         <div className="pane nav-list">
           {SECTIONS.map((item) => (
             <button
@@ -267,6 +276,19 @@ export const Skills = memo(function Skills() {
             </button>
           ))}
         </div>
+        <div
+          className="pane-resize"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Ancho de las secciones de habilidades"
+          aria-valuemin={nav.min}
+          aria-valuemax={nav.max}
+          aria-valuenow={nav.width}
+          tabIndex={0}
+          onPointerDown={nav.onPointerDown}
+          onPointerMove={nav.onPointerMove}
+          onKeyDown={nav.onKeyDown}
+        />
         <div className="pane skill-pane">
           {section === 'trained' && (
             <form className="skill-filter" onSubmit={(event) => event.preventDefault()}>
@@ -286,7 +308,7 @@ export const Skills = memo(function Skills() {
                 <span>{formatNum(queueSp)} SP restantes</span>
                 <span>Fin de la cola {formatEveDate(queueEnd)}</span>
               </div>
-              <table className="skills-table">
+              <table className="skills-table dense">
                 <thead>
                   <tr>
                     <th>Habilidad</th>
@@ -309,6 +331,7 @@ export const Skills = memo(function Skills() {
                       <td>
                         {training && <i className="train-blink" title="Entrenando" />}
                         <SkillTip typeId={job.typeId} name={job.name} />
+                        {training && <span className="train-pct">{studiedPercent(job, now)}%</span>}
                       </td>
                       <td className="num">{formatNum(job.remainingSp ?? 0)} SP</td>
                       <td className="num">{ownDuration(trainingQueue, index)}</td>
@@ -341,6 +364,7 @@ export const Skills = memo(function Skills() {
                   queued={queued}
                   queueTarget={queueTarget}
                   trainingTo={activeTraining}
+                  studied={activeTraining && activeJob ? studiedPercent(activeJob, now) : undefined}
                   forceOpen={skillQuery.trim().length > 0}
                 />
               ))
@@ -361,7 +385,7 @@ export const Skills = memo(function Skills() {
                 </label>
                 <p>{calcSummary}</p>
               </form>
-              <table className="skills-table">
+              <table className="skills-table dense">
                 <thead>
                   <tr>
                     <th>Habilidad</th>

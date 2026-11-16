@@ -1,10 +1,11 @@
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { ClearableInput } from '../components/ClearableInput'
 import { Isk } from '../components/Isk'
 import { PriceChart } from '../components/PriceChart'
 import { Spinner } from '../components/Spinner'
 import { TypeIcon } from '../components/TypeIcon'
 import { formatNum } from '../lib/format'
+import { useSplitFraction } from '../lib/paneWidth'
 import { useCharacter } from '../state/character'
 import { MARKET_REGIONS, type MarketBook, type MarketDay, type MarketTypeHit } from '../types'
 
@@ -166,12 +167,8 @@ export const ItemMarket = memo(function ItemMarket() {
     }
   }, [characterId, item, regionId])
 
-  const cheapest = book?.sells[0]
   const plex = item?.id === 44992
-  const regionName = useMemo(
-    () => (plex ? 'Mercado global de PLEX' : (regions.find((region) => region.id === regionId)?.name ?? 'Región')),
-    [plex, regions, regionId]
-  )
+  const split = useSplitFraction('capsuleeros.marketBook', 2 / 3, 0.18, 0.82)
 
   return (
     <div className="stack">
@@ -254,7 +251,11 @@ export const ItemMarket = memo(function ItemMarket() {
         </select>
         )}
         <span className="dim">
-          {searching || loading ? <span className="loading-note"><Spinner /> Consultando ESI…</span> : item ? item.name : 'Elige un objeto'}
+          {error
+            ? error
+            : searching || loading
+              ? <span className="loading-note"><Spinner /> Consultando ESI…</span>
+              : [item ? item.name : 'Elige un objeto', book?.structureNotice, book?.truncated ? 'Hay más órdenes de las que se han leído.' : ''].filter(Boolean).join(' · ')}
         </span>
       </div>
       {!item ? (
@@ -263,13 +264,26 @@ export const ItemMarket = memo(function ItemMarket() {
         view === 'chart' ? (
         <PriceChart days={history} />
         ) : (
-        <div className="book-split">
+        <div ref={split.ref} className="book-split" style={split.style}>
           <section className="order-block">
             <p className="section-label sell">Ventas · {formatNum(book?.sellCount ?? 0)}</p>
             <div className="pane">
               <BookTable orders={book?.sells ?? []} buy={false} markCheapest loading={loading} />
             </div>
           </section>
+          <div
+            className="pane-resize row"
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Altura de ventas y compras"
+            aria-valuemin={Math.round(split.min * 100)}
+            aria-valuemax={Math.round(split.max * 100)}
+            aria-valuenow={split.percent}
+            tabIndex={0}
+            onPointerDown={split.onPointerDown}
+            onPointerMove={split.onPointerMove}
+            onKeyDown={split.onKeyDown}
+          />
           <section className="order-block">
             <p className="section-label buy">Compras · {formatNum(book?.buyCount ?? 0)}</p>
             <div className="pane">
@@ -279,26 +293,6 @@ export const ItemMarket = memo(function ItemMarket() {
         </div>
         )
       )}
-      <footer className="module-foot">
-        <span>
-          {error
-            ? error
-            : cheapest
-              ? (
-                <span className="isk-pair">
-                  Más barato en {regionName}: <Isk value={cheapest.price} /> · {cheapest.location}
-                </span>
-              )
-              : loading && item
-                ? <span className="loading-note"><Spinner /> Actualizando {item.name} en {regionName}…</span>
-              : item
-                ? `Sin ventas de ${item.name} en ${regionName}.`
-                : regionName}
-        </span>
-        <span className="dim">
-          {[book?.structureNotice, book?.truncated ? 'Hay más órdenes de las que se han leído.' : ''].filter(Boolean).join(' ')}
-        </span>
-      </footer>
     </div>
   )
 })
