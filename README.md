@@ -76,20 +76,36 @@ En la aplicación, pulsa **Añadir personaje**, pega el Client ID y conecta la c
 | `npm run build` | Compila main, preload y renderer en `out/` |
 | `npm run preview` | Abre la compilación de `out/` |
 | `npm run typecheck` | Comprueba los tipos con TypeScript |
-| `npm run dist:win` | Genera el instalador de Windows (NSIS) en `release/` |
-| `npm run dist:linux` | Genera un AppImage en `release/` |
-| `npm run dist:mac` | Genera un zip de macOS en `release/` |
+| `npm run dist:win` | Genera el instalador de Windows (NSIS) en `release/`, sin subirlo |
+| `npm run dist:linux` | Genera un AppImage en `release/`, sin subirlo |
+| `npm run dist:mac` | Genera un zip de macOS en `release/`, sin subirlo |
 
 ## Publicar una versión
 
-Al subir una etiqueta `vX.Y.Z` (por ejemplo `v0.2.0`), GitHub Actions compila el instalador de Windows y el AppImage de Linux y los adjunta a una release de [tutanra/capsuleerOS](https://github.com/tutanra/capsuleerOS/releases). La versión del paquete sale de esa etiqueta.
+Nada se publica solo. Un push a `main` no crea instaladores. La versión sale cuando tú creas una etiqueta `vX.Y.Z` y la subes. El número de `package.json` no decide la release: lo decide la etiqueta.
 
-```bash
-git tag v0.2.0
-git push origin v0.2.0
-```
+La última publicada es `v0.1.1`. La siguiente tiene que ser mayor, por ejemplo `v0.1.2` si es un arreglo o `v0.2.0` si es un cambio más amplio.
 
-La aplicación instalada consulta esa release al arrancar y cada cuatro horas. Si hay una versión más nueva, la descarga y pide reiniciar para instalarla. En Windows hace falta el instalador, no un ejecutable suelto. En Linux hay que abrir el propio AppImage: un binario extraído no puede sustituirse solo. El modo de desarrollo no busca actualizaciones.
+1. Deja el código que quieres publicar ya commiteado y subido a `main`.
+
+   ```bash
+   git push origin main
+   ```
+
+2. Crea la etiqueta sobre ese commit y súbela. Sustituye el número por el que hayas elegido.
+
+   ```bash
+   git tag v0.1.2
+   git push origin v0.1.2
+   ```
+
+Eso es todo lo que hay que hacer a mano. GitHub Actions, en [`.github/workflows/release.yml`](.github/workflows/release.yml), compila en Windows y en Linux, genera el instalador NSIS y el AppImage, y los deja en https://github.com/tutanra/capsuleerOS/releases/tag/v0.1.2 (con el número de tu etiqueta). El progreso se ve en https://github.com/tutanra/capsuleerOS/actions. Cuando el flujo termina en verde, la release está visible y marcada como última.
+
+No reutilices una etiqueta ya publicada. Si el flujo falla, corrige el código, súbelo a `main` y usa un número nuevo.
+
+`npm run dist:win` y `npm run dist:linux` solo dejan los archivos en la carpeta local `release/`. No los envían a GitHub.
+
+La aplicación instalada mira esa release al arrancar y cada cuatro horas. Si hay una versión más nueva, la descarga y pide reiniciar. En Windows tiene que haberse instalado con el setup, no con un ejecutable suelto. En Linux hay que abrir el propio AppImage: un binario extraído no puede sustituirse solo. `npm run dev` no busca actualizaciones. El instalador de Windows no está firmado, así que SmartScreen puede avisar la primera vez.
 
 Para regenerar el catálogo de objetos del mercado desde la ESI:
 

@@ -37,7 +37,7 @@ export function TitleBar() {
     <>
     <header className="titlebar">
       <div className="brand">
-        <img className="brand-mark" src="/icon.png" alt="" width={22} height={22} draggable={false} />
+        <img className="brand-mark" src={`${import.meta.env.BASE_URL}icon.png`} alt="" width={22} height={22} draggable={false} />
         <span className="brand-name">capsuleerOS</span>
       </div>
       <div className="title-status">

@@ -1,6 +1,6 @@
 {
   "name": "capsuleeros",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Companion de EVE Online para habilidades, mercado, inventario y monedero",
   "repository": {
