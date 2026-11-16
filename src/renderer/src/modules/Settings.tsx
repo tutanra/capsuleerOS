@@ -5,13 +5,57 @@ import {
   UI_SCALE_STEP,
   useSettings
 } from '../state/settings'
+import { useUpdate } from '../state/update'
+import type { UpdateState } from '../../../shared/update'
+
+function updateCopy(state: UpdateState, version: string): string {
+  switch (state.phase) {
+    case 'checking':
+      return 'Buscando una versión nueva…'
+    case 'current':
+      return version ? `La versión ${version} es la última publicada.` : 'Esta es la última versión publicada.'
+    case 'available':
+      return `Hay una versión nueva: ${state.version}. Empieza la descarga.`
+    case 'downloading':
+      return `Descargando ${state.version}… ${state.percent}%`
+    case 'ready':
+      return `La versión ${state.version} está descargada. Reinicia para instalarla.`
+    case 'unsupported':
+      return 'La búsqueda en GitHub solo ocurre en la aplicación instalada.'
+    case 'error':
+      return state.message
+    default:
+      return version ? `Versión instalada ${version}.` : 'Versión de desarrollo.'
+  }
+}
 export function Settings() {
   const { uiScale, setUiScale, clockMode, setClockModePref } = useSettings()
+  const update = useUpdate()
   const percent = Math.round(uiScale * 100)
+  const busy = update.state.phase === 'checking' || update.state.phase === 'downloading' || update.state.phase === 'available'
+  const canCheck = update.state.phase !== 'unsupported' && update.state.phase !== 'ready' && !busy
 
   return (
     <div className="stack settings-pane">
       <div className="settings-list">
+        <div className="settings-row">
+          <span className="settings-copy">
+            <strong>Actualización</strong>
+            <small>{updateCopy(update.state, update.version)}</small>
+          </span>
+          <span className="settings-control">
+            {update.state.phase === 'ready' ? (
+              <button type="button" className="settings-reset" onClick={update.install}>
+                Reiniciar y actualizar
+              </button>
+            ) : (
+              <button type="button" className="settings-reset" disabled={!canCheck} onClick={update.check}>
+                Buscar
+              </button>
+            )}
+          </span>
+        </div>
+
         <label className="settings-row">
           <span className="settings-copy">
             <strong>Escala de la interfaz</strong>

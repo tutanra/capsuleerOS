@@ -7,14 +7,17 @@ import '@fontsource/ibm-plex-mono/400.css'
 import { App } from './App'
 import { CharacterProvider } from './state/character'
 import { SettingsProvider } from './state/settings'
+import { UpdateProvider } from './state/update'
 import './styles.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <SettingsProvider>
-      <CharacterProvider>
-        <App />
-      </CharacterProvider>
+      <UpdateProvider>
+        <CharacterProvider>
+          <App />
+        </CharacterProvider>
+      </UpdateProvider>
     </SettingsProvider>
   </StrictMode>
 )

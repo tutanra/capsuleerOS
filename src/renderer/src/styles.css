@@ -55,6 +55,28 @@ button:focus-visible, input:focus-visible { outline: 1px solid var(--cyan); outl
   -webkit-app-region: drag;
   user-select: none;
 }
+.update-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 14px;
+  background: #12202a;
+  border-bottom: 1px solid rgba(110, 200, 214, 0.35);
+  color: var(--text);
+  font-size: var(--fs);
+  -webkit-app-region: no-drag;
+}
+.update-bar button {
+  border: 1px solid var(--cyan);
+  background: transparent;
+  color: var(--cyan);
+  padding: 4px 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: var(--fs-ui);
+}
+.update-bar button:hover { background: rgba(110, 200, 214, 0.12); }
 .brand { display: flex; align-items: center; gap: 8px; }
 .brand-mark {
   width: 22px;
@@ -823,12 +845,19 @@ tr.skill-buy td { color: var(--muted); }
 .neg { color: var(--red); }
 
 .pips { display: inline-flex; gap: 3px; }
-.pip { width: 11px; height: 11px; border: 1px solid var(--gold-dim); }
-.pip.on { background: var(--cyan); border-color: var(--cyan); }
-.pip.max { background: var(--gold); border-color: var(--gold); }
+.pip {
+  width: 11px;
+  height: 11px;
+  background: transparent;
+  border: 1px solid #567890;
+  box-shadow: inset 0 0 0 1px rgba(70, 110, 140, 0.28);
+}
+.pip.on { background: var(--cyan); border-color: var(--cyan); box-shadow: none; }
+.pip.max { background: var(--gold); border-color: var(--gold); box-shadow: none; }
 .pip.queued {
   background: rgba(197, 236, 255, 0.55);
   border-color: var(--train);
+  box-shadow: none;
 }
 .pip.learn {
   background: var(--train);

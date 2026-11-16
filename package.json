@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "description": "Companion de EVE Online para habilidades, mercado, inventario y monedero",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tutanra/capsuleerOS.git"
+  },
   "main": "./out/main/index.js",
   "scripts": {
     "postinstall": "node node_modules/electron/install.js",
@@ -10,9 +14,9 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
-    "dist:win": "npm run build && electron-builder --win portable",
-    "dist:linux": "npm run build && electron-builder --linux AppImage",
-    "dist:mac": "npm run build && electron-builder --mac zip"
+    "dist:win": "npm run build && electron-builder --win nsis --publish never",
+    "dist:linux": "npm run build && electron-builder --linux AppImage --publish never",
+    "dist:mac": "npm run build && electron-builder --mac zip --publish never"
   },
   "build": {
     "appId": "app.capsuleeros.desktop",
@@ -27,18 +31,38 @@
     ],
     "asar": true,
     "icon": "icon.png",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "tutanra",
+        "repo": "capsuleerOS",
+        "releaseType": "release"
+      }
+    ],
     "win": {
       "icon": "icon.ico",
       "target": [
-        "portable"
-      ]
+        "nsis"
+      ],
+      "artifactName": "capsuleerOS-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "capsuleerOS",
+      "uninstallDisplayName": "capsuleerOS"
     },
     "linux": {
       "icon": "icon.png",
       "target": [
         "AppImage"
       ],
-      "category": "Game"
+      "category": "Game",
+      "artifactName": "capsuleerOS-${version}.${ext}"
     },
     "mac": {
       "icon": "icon.png",
@@ -51,6 +75,7 @@
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@fontsource/rajdhani": "^5.3.0",
+    "electron-updater": "^6.8.11",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

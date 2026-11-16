@@ -3,6 +3,7 @@ import { AddCharacter } from './components/AddCharacter'
 import { Spinner } from './components/Spinner'
 import { Neocom } from './components/Neocom'
 import { TitleBar } from './components/TitleBar'
+import { UpdateBar } from './components/UpdateBar'
 import { Fleets } from './modules/Fleets'
 import { Inventory } from './modules/Inventory'
 import { ItemMarket } from './modules/ItemMarket'
@@ -22,6 +23,7 @@ export function App() {
   return (
     <div className="shell">
       <TitleBar />
+      <UpdateBar />
       <div className="body">
         <Neocom active={module} onSelect={setModule} />
         <main className="workspace">

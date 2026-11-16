@@ -1,6 +1,7 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type { CharacterProfile, MarketBook, MarketDay, MarketTypeHit } from '../renderer/src/types'
 import type { DiscordState } from '../shared/discord'
+import type { UpdateState } from '../shared/update'
 
 export type SsoSettings = {
   clientId: string
@@ -43,7 +44,16 @@ const api = {
     ipcRenderer.invoke('discord:show', bounds) as Promise<void>,
   discordHide: () => ipcRenderer.invoke('discord:hide') as Promise<void>,
   discordOpen: (id: string) => ipcRenderer.invoke('discord:open', id) as Promise<void>,
-  discordLogout: () => ipcRenderer.invoke('discord:logout') as Promise<void>
+  discordLogout: () => ipcRenderer.invoke('discord:logout') as Promise<void>,
+  appVersion: () => ipcRenderer.invoke('update:version') as Promise<string>,
+  updateState: () => ipcRenderer.invoke('update:state') as Promise<UpdateState>,
+  checkUpdate: () => ipcRenderer.invoke('update:check') as Promise<void>,
+  installUpdate: () => ipcRenderer.invoke('update:install') as Promise<void>,
+  onUpdate: (listener: (state: UpdateState) => void) => {
+    const channel = (_event: IpcRendererEvent, state: UpdateState) => listener(state)
+    ipcRenderer.on('update:state', channel)
+    return () => ipcRenderer.removeListener('update:state', channel)
+  }
 }
 
 contextBridge.exposeInMainWorld('os', api)

@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { addDiscordChannel, hideDiscord, listDiscordChannels, logoutDiscord, openDiscordChannel, removeDiscordChannel, selectDiscordChannel, showDiscord, watchDiscordSession } from './discord'
 import { addCharacter, cachedCharacters, cancelLogin, characterMarketRegion, hasStoredCharacters, itemHistory, itemMarket, listCharacters, publicSettings, removeCharacter, reorderCharacters, saveSettings, searchMarketTypes, skillDescription } from './eve'
 import { MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH, readStore, writeStore, type WindowState } from './store'
+import { checkForUpdates, currentUpdate, installUpdate, startUpdates } from './update'
 
 Menu.setApplicationMenu(null)
 
@@ -126,14 +127,36 @@ ipcMain.handle('discord:hide', (event) => {
 })
 ipcMain.handle('discord:open', (_event, id: unknown) => openDiscordChannel(id))
 ipcMain.handle('discord:logout', () => logoutDiscord())
+ipcMain.handle('update:state', () => currentUpdate())
+ipcMain.handle('update:version', () => app.getVersion())
+ipcMain.handle('update:check', () => {
+  checkForUpdates()
+})
+ipcMain.handle('update:install', () => {
+  installUpdate()
+})
 
-app.whenReady().then(() => {
-  createWindow()
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+const primary = !app.isPackaged || app.requestSingleInstanceLock()
+if (!primary) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (!win) return
+    if (win.isMinimized()) win.restore()
+    win.focus()
   })
-})
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
-})
+  app.whenReady().then(() => {
+    if (process.platform === 'win32') app.setAppUserModelId('app.capsuleeros.desktop')
+    createWindow()
+    startUpdates()
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
+  })
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit()
+  })
+}

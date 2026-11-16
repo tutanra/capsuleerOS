@@ -76,9 +76,20 @@ En la aplicación, pulsa **Añadir personaje**, pega el Client ID y conecta la c
 | `npm run build` | Compila main, preload y renderer en `out/` |
 | `npm run preview` | Abre la compilación de `out/` |
 | `npm run typecheck` | Comprueba los tipos con TypeScript |
-| `npm run dist:win` | Genera un portable de Windows en `release/` |
+| `npm run dist:win` | Genera el instalador de Windows (NSIS) en `release/` |
 | `npm run dist:linux` | Genera un AppImage en `release/` |
 | `npm run dist:mac` | Genera un zip de macOS en `release/` |
+
+## Publicar una versión
+
+Al subir una etiqueta `vX.Y.Z` (por ejemplo `v0.2.0`), GitHub Actions compila el instalador de Windows y el AppImage de Linux y los adjunta a una release de [tutanra/capsuleerOS](https://github.com/tutanra/capsuleerOS/releases). La versión del paquete sale de esa etiqueta.
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+La aplicación instalada consulta esa release al arrancar y cada cuatro horas. Si hay una versión más nueva, la descarga y pide reiniciar para instalarla. En Windows hace falta el instalador, no un ejecutable suelto. En Linux hay que abrir el propio AppImage: un binario extraído no puede sustituirse solo. El modo de desarrollo no busca actualizaciones.
 
 Para regenerar el catálogo de objetos del mercado desde la ESI:
 

@@ -1,5 +1,8 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { CharacterProfile } from '../types'
+
+/** Vuelta a ESI de todos los personajes. No muestra el estado de carga del arranque. */
+const CHARACTER_REFRESH_MS = 15 * 60 * 1000
 
 type CharacterContextValue = {
   profiles: CharacterProfile[]
@@ -23,38 +26,53 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
   const [loadingCharacters, setLoadingCharacters] = useState(false)
   const [charactersReady, setCharactersReady] = useState(false)
   const profile = profiles.find((item) => item.id === id) ?? null
+  const editEpoch = useRef(0)
 
   useEffect(() => {
     let active = true
+    let refreshing = false
     if (!window.os?.listCharacters) {
       setCharactersReady(true)
       return
     }
-    void (async () => {
-      const cached = window.os?.cachedCharacters ? await window.os.cachedCharacters().catch(() => []) : []
-      if (!active) return
-      if (cached.length > 0) {
-        setProfiles(cached)
-        setId((current) => (current && cached.some((item) => item.id === current) ? current : cached[0]!.id))
-        setCharactersReady(true)
-      } else {
-        setLoadingCharacters(true)
-      }
+
+    async function refresh(initial: boolean): Promise<void> {
+      if (refreshing) return
+      refreshing = true
+      const ticket = editEpoch.current
       try {
+        if (initial) {
+          const cached = window.os?.cachedCharacters ? await window.os.cachedCharacters().catch(() => []) : []
+          if (!active) return
+          if (cached.length > 0) {
+            setProfiles(cached)
+            setId((current) => (current && cached.some((item) => item.id === current) ? current : cached[0]!.id))
+            setCharactersReady(true)
+          } else {
+            setLoadingCharacters(true)
+          }
+        }
         const list = await window.os!.listCharacters()
-        if (!active) return
+        if (!active || ticket !== editEpoch.current) return
         setProfiles(list)
         setId((current) => (current && list.some((item) => item.id === current) ? current : (list[0]?.id ?? null)))
       } catch {
         if (!active) return
       } finally {
-        if (!active) return
+        refreshing = false
+        if (!active || !initial) return
         setLoadingCharacters(false)
         setCharactersReady(true)
       }
-    })()
+    }
+
+    void refresh(true)
+    const timer = window.setInterval(() => {
+      void refresh(false)
+    }, CHARACTER_REFRESH_MS)
     return () => {
       active = false
+      window.clearInterval(timer)
     }
   }, [])
 
@@ -69,12 +87,16 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
       charactersReady,
       add: async () => {
         if (!window.os?.addCharacter) throw new Error('Añadir personajes solo está disponible en la aplicación de escritorio.')
+        editEpoch.current += 1
         const created = await window.os.addCharacter()
+        editEpoch.current += 1
         setProfiles((current) => [created, ...current.filter((item) => item.id !== created.id)])
         setId(created.id)
       },
       remove: async (characterId: string) => {
+        editEpoch.current += 1
         await window.os?.removeCharacter(characterId)
+        editEpoch.current += 1
         setProfiles((current) => {
           const next = current.filter((item) => item.id !== characterId)
           setId((selected) => (selected === characterId ? (next[0]?.id ?? null) : selected))
