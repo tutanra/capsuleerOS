@@ -82,11 +82,12 @@ export function ModuleIcon({ id }: IconProps) {
     )
   }
 
-  if (id === 'fleets') {
+  if (id === 'wiki') {
     return (
       <svg {...common}>
-        <path d="M12 3.5l7.5 15h-15L12 3.5z" />
-        <path d="M12 8.5l4.2 8.2H7.8L12 8.5z" />
+        <circle cx="12" cy="12" r="6.5" />
+        <path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6" />
+        <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" />
       </svg>
     )
   }

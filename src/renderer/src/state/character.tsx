@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { CharacterProfile } from '../types'
 
 /** Vuelta a ESI de todos los personajes. No muestra el estado de carga del arranque. */
@@ -15,6 +15,8 @@ type CharacterContextValue = {
   setAdding: (open: boolean) => void
   loadingCharacters: boolean
   charactersReady: boolean
+  refreshing: boolean
+  refreshNow: () => void
 }
 
 const CharacterContext = createContext<CharacterContextValue | null>(null)
@@ -25,20 +27,32 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
   const [adding, setAdding] = useState(false)
   const [loadingCharacters, setLoadingCharacters] = useState(false)
   const [charactersReady, setCharactersReady] = useState(false)
+  const [refreshing, setRefreshing] = useState(() => Boolean(window.os?.listCharacters))
   const profile = profiles.find((item) => item.id === id) ?? null
   const editEpoch = useRef(0)
+  const refreshNowRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     let active = true
-    let refreshing = false
+    let inFlight = false
+    let timer = 0
     if (!window.os?.listCharacters) {
+      setRefreshing(false)
       setCharactersReady(true)
       return
     }
 
+    function armTimer(): void {
+      window.clearInterval(timer)
+      timer = window.setInterval(() => {
+        void refresh(false)
+      }, CHARACTER_REFRESH_MS)
+    }
+
     async function refresh(initial: boolean): Promise<void> {
-      if (refreshing) return
-      refreshing = true
+      if (inFlight) return
+      inFlight = true
+      setRefreshing(true)
       const ticket = editEpoch.current
       try {
         if (initial) {
@@ -59,21 +73,31 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
       } catch {
         if (!active) return
       } finally {
-        refreshing = false
+        inFlight = false
+        if (active) setRefreshing(false)
         if (!active || !initial) return
         setLoadingCharacters(false)
         setCharactersReady(true)
       }
     }
 
-    void refresh(true)
-    const timer = window.setInterval(() => {
+    refreshNowRef.current = () => {
+      if (!active || inFlight) return
+      armTimer()
       void refresh(false)
-    }, CHARACTER_REFRESH_MS)
+    }
+
+    void refresh(true)
+    armTimer()
     return () => {
       active = false
       window.clearInterval(timer)
+      refreshNowRef.current = () => {}
     }
+  }, [])
+
+  const refreshNow = useCallback(() => {
+    refreshNowRef.current()
   }, [])
 
   const value = useMemo<CharacterContextValue>(
@@ -85,6 +109,8 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
       setAdding,
       loadingCharacters,
       charactersReady,
+      refreshing,
+      refreshNow,
       add: async () => {
         if (!window.os?.addCharacter) throw new Error('Añadir personajes solo está disponible en la aplicación de escritorio.')
         editEpoch.current += 1
@@ -109,7 +135,7 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
         void window.os?.reorderCharacters(ids)
       }
     }),
-    [profiles, profile, adding, loadingCharacters, charactersReady]
+    [profiles, profile, adding, loadingCharacters, charactersReady, refreshing, refreshNow]
   )
 
   return <CharacterContext.Provider value={value}>{children}</CharacterContext.Provider>

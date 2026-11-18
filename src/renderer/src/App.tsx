@@ -4,7 +4,6 @@ import { Spinner } from './components/Spinner'
 import { Neocom } from './components/Neocom'
 import { TitleBar } from './components/TitleBar'
 import { UpdateBar } from './components/UpdateBar'
-import { Fleets } from './modules/Fleets'
 import { Inventory } from './modules/Inventory'
 import { ItemMarket } from './modules/ItemMarket'
 import { Market } from './modules/Market'
@@ -12,13 +11,14 @@ import { Overview } from './modules/Overview'
 import { Settings } from './modules/Settings'
 import { Skills } from './modules/Skills'
 import { Wallet } from './modules/Wallet'
+import { Wiki } from './modules/Wiki'
 import { useCharacter } from './state/character'
 import { MODULES, type ModuleId } from './types'
 
 export function App() {
   const [module, setModule] = useState<ModuleId>('overview')
   const { profile, adding, setAdding, loadingCharacters, charactersReady } = useCharacter()
-  const needsCharacter = module !== 'settings' && module !== 'prices' && module !== 'fleets'
+  const needsCharacter = module !== 'settings' && module !== 'prices' && module !== 'wiki'
 
   return (
     <div className="shell">
@@ -28,7 +28,7 @@ export function App() {
         <Neocom active={module} onSelect={setModule} />
         <main className="workspace">
           <section className="stage" aria-label={MODULES[module].title}>
-            <header className="stage-title" hidden={module === 'inventory' && !!profile}>
+            <header className="stage-title" hidden={(module === 'inventory' && !!profile) || module === 'wiki'}>
               {MODULES[module].title}
             </header>
             <div className="stage-body">
@@ -38,8 +38,8 @@ export function App() {
               <div className="module-pane" hidden={module !== 'prices'}>
                 <ItemMarket />
               </div>
-              <div className="module-pane" hidden={module !== 'fleets'}>
-                <Fleets active={module === 'fleets'} />
+              <div className="module-pane" hidden={module !== 'wiki'}>
+                <Wiki />
               </div>
               {needsCharacter && loadingCharacters && (
                 <div className="empty-app">

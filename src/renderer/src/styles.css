@@ -135,6 +135,18 @@ button:focus-visible, input:focus-visible { outline: 1px solid var(--cyan); outl
   gap: 0.15em;
 }
 .clock, .dim { color: var(--dim); }
+.refresh-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 2px 4px;
+  color: var(--dim);
+  -webkit-app-region: no-drag;
+}
+button.refresh-slot:hover { color: var(--gold); }
+.refresh-slot svg { flex: none; }
 .pilot { color: var(--text); }
 .win-controls { display: flex; -webkit-app-region: no-drag; }
 .win-controls button {
@@ -515,7 +527,7 @@ tr.cheapest td { background: rgba(157, 206, 160, 0.14); }
 .stack { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; flex: 1; }
 .stack-main { flex: 1; min-height: 0; }
 .split { display: grid; grid-template-columns: 210px minmax(0, 1fr); min-height: 0; }
-.skills-split, .inv-split, .fleets-split { display: flex; min-width: 0; }
+.skills-split, .inv-split { display: flex; min-width: 0; }
 .skills-split > .nav-list,
 .inv-split > .nav-list { flex: 0 0 auto; width: var(--pane-nav, 210px); overflow: hidden; }
 .skills-split > .nav-list { width: var(--pane-nav, 228px); }
@@ -1223,79 +1235,130 @@ tr.training .train-pct { color: var(--train); }
   color: var(--text);
 }
 
-.fleets-split > .fleets-side {
-  flex: 0 0 auto;
-  width: var(--pane-nav, 248px);
-  overflow: hidden;
-}
-.fleets-split > .fleets-preview { flex: 1 1 auto; min-width: 0; }
-.fleets-side { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
-.fleets-add {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px;
-  border-bottom: 1px solid rgba(201, 164, 92, 0.22);
-}
-.fleets-add input {
-  width: 100%;
-  background: #0b1016;
-  border: 1px solid rgba(201, 164, 92, 0.35);
-  padding: 6px 8px;
-  letter-spacing: 0;
-  text-transform: none;
-}
-.fleets-add button, .fleets-toolbar button {
+.wiki-bar { justify-content: flex-start; gap: 10px; }
+.wiki-nav { display: flex; gap: 6px; flex: none; }
+.wiki-back {
+  flex: none;
   border: 1px solid var(--line);
   background: transparent;
-  color: var(--text);
-  padding: 6px 10px;
-  letter-spacing: 0.06em;
+  color: var(--gold);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  font-size: var(--fs-ui);
+  font-size: 11px;
+  padding: 3px 8px;
 }
-.fleets-add button:disabled, .fleets-toolbar button:disabled { opacity: 0.4; cursor: default; }
-.fleets-add button:not(:disabled):hover, .fleets-toolbar button:not(:disabled):hover { border-color: var(--gold); }
-.fleets-scroll { flex: 1; min-height: 0; overflow: auto; }
-.fleets-row { align-items: center; padding: 0; }
-.fleets-pick {
-  flex: 1;
+.wiki-back:not(:disabled):hover { border-color: var(--gold); }
+.wiki-back:disabled { opacity: 0.35; cursor: default; }
+.wiki-label {
   min-width: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  text-align: left;
-  padding: 7px 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.fleets-remove {
-  flex: none;
-  border: 0;
-  background: transparent;
-  color: var(--gold);
-  padding: 7px 8px;
-  font-size: 16px;
-  line-height: 1;
-}
-.fleets-remove:hover { color: var(--text); }
-.fleets-hint { margin: 0; padding: 8px; }
-.fleets-preview {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-}
-.fleets-toolbar { flex: none; }
-.fleets-toolbar-actions { display: flex; gap: 8px; }
-.fleets-host { position: relative; flex: 1; min-height: 0; background: #07090d; }
-.fleets-empty {
-  position: absolute;
-  inset: 0;
+.wiki-search {
+  margin-left: auto;
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 24px;
-  text-align: center;
+  gap: 8px;
+  min-width: 0;
+}
+.wiki-search input {
+  width: min(320px, 42vw);
+  background: #0b1016;
+  border: 1px solid rgba(201, 164, 92, 0.35);
+  color: var(--text);
+  padding: 4px 8px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 500;
+}
+.wiki-search button {
+  flex: none;
+  border: 1px solid var(--gold);
+  background: transparent;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 11px;
+  padding: 4px 10px;
+}
+.wiki-search button:hover { background: rgba(215, 181, 106, 0.12); }
+.wiki-home {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 16px;
+  align-content: start;
+}
+.wiki-group h2 {
+  margin: 0 0 4px;
+  color: var(--gold);
+  font-size: var(--fs-ui);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.wiki-group p {
+  margin: 0 0 10px;
+  color: var(--dim);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.wiki-cards { display: grid; gap: 8px; }
+.wiki-cards button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(201, 164, 92, 0.25);
+  background: rgba(0, 0, 0, 0.18);
+  text-align: left;
+}
+.wiki-cards button:hover { border-color: rgba(110, 200, 214, 0.45); }
+.wiki-cards strong {
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.wiki-cards small { color: var(--dim); letter-spacing: 0; }
+.wiki-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  background: var(--bg);
+}
+.wiki-frame-host {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  background: var(--bg);
+}
+.wiki-frame,
+.wiki-frame-host webview {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--bg);
+  color-scheme: dark;
+}
+.wiki-frame.is-booting,
+.wiki-frame-host webview.is-booting { visibility: hidden; }
+.wiki-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: var(--gold);
 }

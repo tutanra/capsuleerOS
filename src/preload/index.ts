@@ -1,6 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type { CharacterProfile, MarketBook, MarketDay, MarketTypeHit } from '../renderer/src/types'
-import type { DiscordState } from '../shared/discord'
 import type { UpdateState } from '../shared/update'
 
 export type SsoSettings = {
@@ -36,15 +35,6 @@ const api = {
       description: string
       requirements: Array<{ typeId: number; name: string; level: number }>
     }>,
-  discordList: () => ipcRenderer.invoke('discord:list') as Promise<DiscordState>,
-  discordAdd: (input: { url: string; name?: string }) => ipcRenderer.invoke('discord:add', input) as Promise<DiscordState>,
-  discordRemove: (id: string) => ipcRenderer.invoke('discord:remove', id) as Promise<DiscordState>,
-  discordSelect: (id: string) => ipcRenderer.invoke('discord:select', id) as Promise<DiscordState>,
-  discordShow: (bounds: { x: number; y: number; width: number; height: number }) =>
-    ipcRenderer.invoke('discord:show', bounds) as Promise<void>,
-  discordHide: () => ipcRenderer.invoke('discord:hide') as Promise<void>,
-  discordOpen: (id: string) => ipcRenderer.invoke('discord:open', id) as Promise<void>,
-  discordLogout: () => ipcRenderer.invoke('discord:logout') as Promise<void>,
   appVersion: () => ipcRenderer.invoke('update:version') as Promise<string>,
   updateState: () => ipcRenderer.invoke('update:state') as Promise<UpdateState>,
   checkUpdate: () => ipcRenderer.invoke('update:check') as Promise<void>,

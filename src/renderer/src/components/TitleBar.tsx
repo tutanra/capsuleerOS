@@ -1,8 +1,43 @@
 import { useEffect, useRef, useState } from 'react'
 import { Portrait } from './Portrait'
+import { Spinner } from './Spinner'
 import { useCharacter } from '../state/character'
 import { Isk } from './Isk'
 import { formatEveClock, formatNum, formatSecurity, securityColor } from '../lib/format'
+
+function RefreshIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+      <path d="M16 16h5v5" />
+    </svg>
+  )
+}
+
+function DataRefresh() {
+  const { profile, refreshing, loadingCharacters, refreshNow } = useCharacter()
+  if (!profile || !window.os?.listCharacters) return null
+  if (refreshing || loadingCharacters) {
+    return (
+      <span className="refresh-slot" title="Actualizando datos">
+        <Spinner />
+      </span>
+    )
+  }
+  return (
+    <button
+      type="button"
+      className="refresh-slot"
+      aria-label="Actualizar datos"
+      title="Actualizar datos"
+      onClick={() => refreshNow()}
+    >
+      <RefreshIcon />
+    </button>
+  )
+}
 
 export function TitleBar() {
   const { profiles, profile, select, remove, reorder, setAdding } = useCharacter()
@@ -52,6 +87,7 @@ export function TitleBar() {
             </span>
           </>
         )}
+        <DataRefresh />
         <span className="clock">EVE {now}</span>
         <div className="pilot-switch" ref={rosterRef}>
           <button

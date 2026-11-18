@@ -1,4 +1,4 @@
-export type ModuleId = 'overview' | 'skills' | 'market' | 'inventory' | 'wallet' | 'prices' | 'fleets' | 'settings'
+export type ModuleId = 'overview' | 'skills' | 'market' | 'inventory' | 'wallet' | 'prices' | 'wiki' | 'settings'
 
 export type ModuleMeta = {
   title: string
@@ -12,13 +12,13 @@ export const MODULES: Record<ModuleId, ModuleMeta> = {
   market: { title: 'Mercado', blurb: 'Órdenes de compra y venta' },
   wallet: { title: 'Monedero', blurb: 'Saldo y diario' },
   prices: { title: 'Market', blurb: 'Dónde está más barato un objeto' },
-  fleets: { title: 'Flotas', blurb: 'Canales de Discord de la alianza' },
+  wiki: { title: 'UniWiki', blurb: 'Anomalías y exploración' },
   settings: { title: 'Ajustes', blurb: 'Preferencias de la interfaz' }
 }
 
 export const NEOCOM: ModuleId[] = ['overview', 'skills', 'inventory', 'market', 'wallet']
 
-export const UTILITIES: ModuleId[] = ['prices', 'fleets']
+export const UTILITIES: ModuleId[] = ['prices', 'wiki']
 
 export const SYSTEM: ModuleId[] = ['settings']
 

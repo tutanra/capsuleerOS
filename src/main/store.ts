@@ -2,7 +2,6 @@ import { app } from 'electron'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { CharacterProfile } from '../renderer/src/types'
-import { parseDiscordChannelUrl, type DiscordChannel } from '../shared/discord'
 
 export type StoredAccount = {
   characterId: number
@@ -26,8 +25,6 @@ export type StoreFile = {
   clientSecret: string
   accounts: StoredAccount[]
   window?: WindowState
-  discordChannels: DiscordChannel[]
-  discordActiveId: string
 }
 
 function readWindow(value: unknown): WindowState | undefined {
@@ -47,23 +44,8 @@ function readWindow(value: unknown): WindowState | undefined {
   }
 }
 
-function readDiscordChannels(value: unknown): DiscordChannel[] {
-  if (!Array.isArray(value)) return []
-  const channels: DiscordChannel[] = []
-  for (const item of value) {
-    if (!item || typeof item !== 'object') continue
-    const raw = item as Partial<DiscordChannel>
-    if (typeof raw.id !== 'string' || !raw.id || typeof raw.name !== 'string' || typeof raw.url !== 'string') continue
-    const parsed = parseDiscordChannelUrl(raw.url)
-    const name = raw.name.trim().replace(/\s+/g, ' ').slice(0, 60)
-    if (!parsed || !name) continue
-    channels.push({ id: raw.id, name, url: parsed.url })
-  }
-  return channels
-}
-
 function emptyStore(): StoreFile {
-  return { clientId: '', clientSecret: '', accounts: [], discordChannels: [], discordActiveId: '' }
+  return { clientId: '', clientSecret: '', accounts: [] }
 }
 
 function filePath(): string {
@@ -77,9 +59,7 @@ export function readStore(): StoreFile {
       clientId: parsed.clientId ?? '',
       clientSecret: parsed.clientSecret ?? '',
       accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
-      window: readWindow(parsed.window),
-      discordChannels: readDiscordChannels(parsed.discordChannels),
-      discordActiveId: typeof parsed.discordActiveId === 'string' ? parsed.discordActiveId : ''
+      window: readWindow(parsed.window)
     }
   } catch {
     return emptyStore()

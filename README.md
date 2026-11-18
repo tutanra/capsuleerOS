@@ -14,7 +14,7 @@ La interfaz está en español. Los datos del personaje se leen en vivo; el Clien
 | Mercado | Órdenes de compra y venta del personaje |
 | Monedero | Saldo y diario de movimientos |
 | Market | Búsqueda de objetos, libro de órdenes y historial de precios |
-| Flotas | Canales de Discord elegidos, con previsualización en la ventana |
+| UniWiki | Acceso rápido a anomalías y exploración de EVE University, con la wiki incrustada |
 
 En Market se puede mirar la región actual del personaje, el conjunto de hubs (The Forge, Domain, Sinq Laison, Heimatar, Metropolis y Essence) o todas las regiones del k-space. El catálogo de objetos vive en `src/shared/market-types.json`.
 
