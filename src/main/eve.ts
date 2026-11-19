@@ -15,7 +15,7 @@ import type {
   TrainingJob
 } from '../renderer/src/types'
 import marketTypes from '../shared/market-types.json'
-import { EVE_SCOPES, REDIRECT_PORT, REDIRECT_URI } from '../shared/eve'
+import { EVE_CLIENT_ID, EVE_SCOPES, REDIRECT_PORT, REDIRECT_URI } from '../shared/eve'
 import { readStore, writeStore, type StoredAccount } from './store'
 
 const BASE_ATTRIBUTE = 17
@@ -117,12 +117,8 @@ function pkce(): { verifier: string; challenge: string } {
   return { verifier, challenge }
 }
 
-async function tokenRequest(body: URLSearchParams, clientId: string, clientSecret: string): Promise<TokenResponse> {
+async function tokenRequest(body: URLSearchParams): Promise<TokenResponse> {
   const headers: Record<string, string> = { 'Content-Type': 'application/x-www-form-urlencoded' }
-  if (clientSecret) {
-    headers.Authorization = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
-    body.delete('client_id')
-  }
   const response = await fetch('https://login.eveonline.com/v2/oauth/token', { method: 'POST', headers, body })
   if (!response.ok) {
     const detail = await response.text()
@@ -671,10 +667,9 @@ async function resolveAccelerator(
 function resolveMultipilot(): CharacterProfile['multipilot'] {
   const store = readStore()
   const now = Date.now()
-  const activeQueues = store.accounts.filter((account) => {
-    const job = account.profile.trainingQueue?.[0]
-    return job?.finishAt != null && Date.parse(job.finishAt) > now
-  }).length
+  const activeQueues = store.accounts.filter((account) =>
+    (account.profile.trainingQueue ?? []).some((job) => job.finishAt != null && Date.parse(job.finishAt) > now)
+  ).length
   if (activeQueues < 2) return null
   return { activeQueues }
 }
@@ -1018,14 +1013,14 @@ async function assetLocations(characterId: number, assets: EsiAsset[], token: st
     .sort((a, b) => a.name.localeCompare(b.name, 'es'))
 }
 
-async function login(clientId: string, clientSecret: string): Promise<CharacterProfile> {
+async function login(): Promise<CharacterProfile> {
   cancelLogin()
   const { verifier, challenge } = pkce()
   const state = base64url(randomBytes(16))
   const authorize = new URL('https://login.eveonline.com/v2/oauth/authorize')
   authorize.searchParams.set('response_type', 'code')
   authorize.searchParams.set('redirect_uri', REDIRECT_URI)
-  authorize.searchParams.set('client_id', clientId)
+  authorize.searchParams.set('client_id', EVE_CLIENT_ID)
   authorize.searchParams.set('scope', EVE_SCOPES.join(' '))
   authorize.searchParams.set('code_challenge', challenge)
   authorize.searchParams.set('code_challenge_method', 'S256')
@@ -1040,14 +1035,12 @@ async function login(clientId: string, clientSecret: string): Promise<CharacterP
     new URLSearchParams({
       grant_type: 'authorization_code',
       code,
-      client_id: clientId,
+      client_id: EVE_CLIENT_ID,
       code_verifier: verifier,
       redirect_uri: REDIRECT_URI
-    }),
-    clientId,
-    clientSecret
+    })
   )
-  const claims = await verifyAccessToken(tokens.access_token, clientId)
+  const claims = await verifyAccessToken(tokens.access_token, EVE_CLIENT_ID)
   const profile = await buildProfile(tokens.access_token, claims)
   const characterId = Number(claims.sub.split(':')[2])
   const store = readStore()
@@ -1061,19 +1054,17 @@ async function login(clientId: string, clientSecret: string): Promise<CharacterP
   return profile
 }
 
-async function refreshAccount(account: StoredAccount, clientId: string, clientSecret: string): Promise<CharacterProfile> {
+async function refreshAccount(account: StoredAccount): Promise<CharacterProfile> {
   if (!account.refreshToken) return account.profile
   try {
     const tokens = await tokenRequest(
       new URLSearchParams({
         grant_type: 'refresh_token',
         refresh_token: account.refreshToken,
-        client_id: clientId
-      }),
-      clientId,
-      clientSecret
+        client_id: EVE_CLIENT_ID
+      })
     )
-    const claims = await verifyAccessToken(tokens.access_token, clientId)
+    const claims = await verifyAccessToken(tokens.access_token, EVE_CLIENT_ID)
     const profile = await buildProfile(tokens.access_token, claims)
     account.refreshToken = tokens.refresh_token ?? account.refreshToken
     account.profile = profile
@@ -1092,15 +1083,13 @@ async function accessToken(characterId: number): Promise<string> {
   if (cached && cached.until > Date.now()) return cached.token
   const store = readStore()
   const account = store.accounts.find((item) => item.characterId === characterId)
-  if (!account?.refreshToken || !store.clientId.trim()) throw new Error('No hay un personaje conectado.')
+  if (!account?.refreshToken) throw new Error('No hay un personaje conectado.')
   const tokens = await tokenRequest(
     new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: account.refreshToken,
-      client_id: store.clientId.trim()
-    }),
-    store.clientId.trim(),
-    store.clientSecret.trim()
+      client_id: EVE_CLIENT_ID
+    })
   )
   if (tokens.refresh_token) {
     account.refreshToken = tokens.refresh_token
@@ -1536,9 +1525,7 @@ export async function itemHistory(regionId: number, typeId: number): Promise<Mar
 }
 
 export async function addCharacter(): Promise<CharacterProfile> {
-  const store = readStore()
-  if (!store.clientId.trim()) throw new Error('Falta el Client ID de la aplicación de EVE.')
-  return login(store.clientId.trim(), store.clientSecret.trim())
+  return login()
 }
 
 export function hasStoredCharacters(): boolean {
@@ -1551,10 +1538,8 @@ export function cachedCharacters(): CharacterProfile[] {
 
 export async function listCharacters(): Promise<CharacterProfile[]> {
   const store = readStore()
-  if (!store.clientId.trim() || store.accounts.length === 0) return store.accounts.map((account) => account.profile)
-  const clientId = store.clientId.trim()
-  const clientSecret = store.clientSecret.trim()
-  const profiles = await mapPool(store.accounts, 3, (account) => refreshAccount(account, clientId, clientSecret))
+  if (store.accounts.length === 0) return []
+  const profiles = await mapPool(store.accounts, 3, (account) => refreshAccount(account))
   writeStore(store)
   return profiles
 }
@@ -1570,24 +1555,6 @@ export function reorderCharacters(ids: string[]): void {
   const rank = new Map(ids.map((id, index) => [id, index]))
   store.accounts.sort((a, b) => (rank.get(a.profile.id) ?? ids.length) - (rank.get(b.profile.id) ?? ids.length))
   writeStore(store)
-}
-
-export function publicSettings(): { clientId: string; hasSecret: boolean; redirectUri: string; scopes: string[] } {
-  const store = readStore()
-  return {
-    clientId: store.clientId,
-    hasSecret: store.clientSecret.length > 0,
-    redirectUri: REDIRECT_URI,
-    scopes: [...EVE_SCOPES]
-  }
-}
-
-export function saveSettings(input: { clientId: string; clientSecret?: string }): ReturnType<typeof publicSettings> {
-  const store = readStore()
-  store.clientId = input.clientId.trim()
-  if (input.clientSecret?.trim()) store.clientSecret = input.clientSecret.trim()
-  writeStore(store)
-  return publicSettings()
 }
 
 export type SkillRequirement = { typeId: number; name: string; level: number }

@@ -1,6 +1,9 @@
 export const REDIRECT_PORT = 47821
 export const REDIRECT_URI = `http://127.0.0.1:${REDIRECT_PORT}/callback`
 
+/** Aplicación pública de EVE. El Client ID no es un secreto; el flujo usa PKCE y no hay Client Secret. */
+export const EVE_CLIENT_ID = '92b64cefb22d45809e751b4abf2cd6ee'
+
 export const EVE_SCOPES = [
   'esi-skills.read_skills.v1',
   'esi-skills.read_skillqueue.v1',

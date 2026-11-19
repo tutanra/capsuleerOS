@@ -3,7 +3,7 @@ import { Portrait } from '../components/Portrait'
 import { Isk } from '../components/Isk'
 import { Pips } from '../components/Pips'
 import { formatEveDate, formatNum, formatSecurity, securityColor } from '../lib/format'
-import { studiedPercent, useNow } from '../lib/training'
+import { isTraining, liveTrainingQueue, queueRemainingLabel, studiedPercent, useNow } from '../lib/training'
 import { useCharacter } from '../state/character'
 import { MODULES, NEOCOM, type ModuleId } from '../types'
 
@@ -15,10 +15,10 @@ export const Overview = memo(function Overview({ onOpen }: Props) {
   const { profile } = useCharacter()
   const now = useNow()
   if (!profile) return null
-  const { character, trainingQueue, queueSummary, accelerator, multipilot } = profile
-  const current = trainingQueue[0]
-  const training =
-    current != null && current.finishAt != null && Date.parse(current.finishAt) > now
+  const { character, trainingQueue, accelerator, multipilot } = profile
+  const queue = liveTrainingQueue(trainingQueue, now)
+  const current = queue[0]
+  const training = isTraining(current, now)
   const studied = current && training ? studiedPercent(current, now) : null
 
   return (
@@ -89,7 +89,7 @@ export const Overview = memo(function Overview({ onOpen }: Props) {
         <section className="card">
           <header>
             <span>Entrenando</span>
-            <span className="dim">Cola {queueSummary}</span>
+            <span className="dim">Cola {queueRemainingLabel(trainingQueue, now)}</span>
           </header>
           {current ? (
             <>

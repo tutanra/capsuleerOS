@@ -2,7 +2,7 @@
 
 Companion de escritorio para [EVE Online](https://www.eveonline.com/). Consulta habilidades, inventario, órdenes de mercado y monedero de uno o varios personajes a través de la [ESI](https://developers.eveonline.com/api-explorer) y del inicio de sesión de EVE (SSO).
 
-La interfaz está en español. Los datos del personaje se leen en vivo; el Client ID y los tokens de refresco se guardan solo en el equipo.
+La interfaz está en español. Los datos del personaje se leen en vivo y el acceso es solo de lectura. La aplicación de EVE va incluida; los tokens de refresco se guardan solo en el equipo.
 
 ## Qué incluye
 
@@ -24,33 +24,26 @@ Se pueden conectar varios personajes, reordenarlos y quitarlos. La ventana no ti
 
 - [Node.js](https://nodejs.org/) 22.12 o superior y npm
 - Una cuenta de EVE Online
-- Una aplicación ya creada en [EVE Developers](https://developers.eveonline.com/)
 
-## Configurar la aplicación de EVE
+## Acceso a EVE
 
-1. Entra en [developers.eveonline.com](https://developers.eveonline.com/) y abre la aplicación existente.
-2. Añade esta callback, tal cual:
+capsuleerOS incluye la aplicación pública `92b64cefb22d45809e751b4abf2cd6ee`. No hace falta crear otra ni pegar un Client ID. No hay Client Secret: el inicio de sesión usa PKCE.
 
-   ```
-   http://127.0.0.1:47821/callback
-   ```
+El acceso pedido es solo de lectura:
 
-3. Activa estos scopes:
+- `esi-skills.read_skills.v1`
+- `esi-skills.read_skillqueue.v1`
+- `esi-wallet.read_character_wallet.v1`
+- `esi-assets.read_assets.v1`
+- `esi-location.read_location.v1`
+- `esi-location.read_ship_type.v1`
+- `esi-clones.read_clones.v1`
+- `esi-clones.read_implants.v1`
+- `esi-universe.read_structures.v1`
+- `esi-markets.read_character_orders.v1`
+- `esi-markets.structure_markets.v1`
 
-   - `esi-skills.read_skills.v1`
-   - `esi-skills.read_skillqueue.v1`
-   - `esi-wallet.read_character_wallet.v1`
-   - `esi-assets.read_assets.v1`
-   - `esi-location.read_location.v1`
-   - `esi-location.read_ship_type.v1`
-   - `esi-clones.read_clones.v1`
-   - `esi-universe.read_structures.v1`
-   - `esi-markets.read_character_orders.v1`
-   - `esi-markets.structure_markets.v1`
-
-4. Copia el Client ID. El Client Secret solo hace falta si la aplicación lo muestra.
-
-El inicio de sesión usa PKCE. capsuleerOS abre el navegador y escucha la respuesta en `127.0.0.1:47821`. Si ese puerto está ocupado, ciérralo y vuelve a conectar el personaje.
+La callback registrada es `http://127.0.0.1:47821/callback`. capsuleerOS abre el navegador y escucha la respuesta en ese puerto. Si está ocupado, ciérralo y vuelve a conectar el personaje.
 
 ## Instalación
 
@@ -66,7 +59,7 @@ npm install
 npm run dev
 ```
 
-En la aplicación, pulsa **Añadir personaje**, pega el Client ID y conecta la cuenta de EVE. El navegador suelto no puede completar el acceso: hay que usar la ventana de Electron.
+En la aplicación, pulsa **Añadir personaje** y conecta la cuenta de EVE. El navegador suelto no puede completar el acceso: hay que usar la ventana de Electron.
 
 ## Scripts
 
@@ -84,7 +77,7 @@ En la aplicación, pulsa **Añadir personaje**, pega el Client ID y conecta la c
 
 Nada se publica solo. Un push a `main` no crea instaladores. La versión sale cuando tú creas una etiqueta `vX.Y.Z` y la subes. El número de `package.json` no decide la release: lo decide la etiqueta.
 
-La última publicada es `v0.1.1`. La siguiente tiene que ser mayor, por ejemplo `v0.1.2` si es un arreglo o `v0.2.0` si es un cambio más amplio.
+La última publicada es `v0.1.3`. La siguiente tiene que ser mayor, por ejemplo `v0.1.4` si es un arreglo o `v0.2.0` si es un cambio más amplio.
 
 1. Deja el código que quieres publicar ya commiteado y subido a `main`.
 
@@ -95,11 +88,11 @@ La última publicada es `v0.1.1`. La siguiente tiene que ser mayor, por ejemplo 
 2. Crea la etiqueta sobre ese commit y súbela. Sustituye el número por el que hayas elegido.
 
    ```bash
-   git tag v0.1.2
-   git push origin v0.1.2
+   git tag v0.1.4
+   git push origin v0.1.4
    ```
 
-Eso es todo lo que hay que hacer a mano. GitHub Actions, en [`.github/workflows/release.yml`](.github/workflows/release.yml), compila en Windows y en Linux, genera el instalador NSIS y el AppImage, y los deja en https://github.com/tutanra/capsuleerOS/releases/tag/v0.1.2 (con el número de tu etiqueta). El progreso se ve en https://github.com/tutanra/capsuleerOS/actions. Cuando el flujo termina en verde, la release está visible y marcada como última.
+Eso es todo lo que hay que hacer a mano. GitHub Actions, en [`.github/workflows/release.yml`](.github/workflows/release.yml), compila en Windows y en Linux, genera el instalador NSIS y el AppImage, y los deja en https://github.com/tutanra/capsuleerOS/releases/tag/v0.1.4 (con el número de tu etiqueta). El progreso se ve en https://github.com/tutanra/capsuleerOS/actions. Cuando el flujo termina en verde, la release está visible y marcada como última.
 
 No reutilices una etiqueta ya publicada. Si el flujo falla, corrige el código, súbelo a `main` y usa un número nuevo.
 
@@ -117,7 +110,7 @@ El script recorre categorías, grupos y nombres publicados y reescribe `src/shar
 
 ## Datos locales
 
-Client ID, secreto (si se indicó) y tokens de refresco se guardan en `capsuleeros.json`, dentro de la carpeta de datos de usuario de Electron. En Windows esa ruta es:
+Los tokens de refresco se guardan en `capsuleeros.json`, dentro de la carpeta de datos de usuario de Electron. En Windows esa ruta es:
 
 ```
 %APPDATA%\capsuleeros\capsuleeros.json

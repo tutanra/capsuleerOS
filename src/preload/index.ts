@@ -2,20 +2,10 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type { CharacterProfile, MarketBook, MarketDay, MarketTypeHit } from '../renderer/src/types'
 import type { UpdateState } from '../shared/update'
 
-export type SsoSettings = {
-  clientId: string
-  hasSecret: boolean
-  redirectUri: string
-  scopes: string[]
-}
-
 const api = {
   minimize: () => ipcRenderer.send('window:minimize'),
   toggleMaximize: () => ipcRenderer.send('window:toggle-maximize'),
   close: () => ipcRenderer.send('window:close'),
-  ssoSettings: () => ipcRenderer.invoke('sso:settings') as Promise<SsoSettings>,
-  saveSsoSettings: (input: { clientId: string; clientSecret?: string }) =>
-    ipcRenderer.invoke('sso:save-settings', input) as Promise<SsoSettings>,
   hasStoredCharacters: () => ipcRenderer.invoke('sso:has') as Promise<boolean>,
   cachedCharacters: () => ipcRenderer.invoke('sso:cached') as Promise<CharacterProfile[]>,
   listCharacters: () => ipcRenderer.invoke('sso:list') as Promise<CharacterProfile[]>,

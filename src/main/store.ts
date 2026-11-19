@@ -21,8 +21,6 @@ export type WindowState = {
 }
 
 export type StoreFile = {
-  clientId: string
-  clientSecret: string
   accounts: StoredAccount[]
   window?: WindowState
 }
@@ -45,7 +43,7 @@ function readWindow(value: unknown): WindowState | undefined {
 }
 
 function emptyStore(): StoreFile {
-  return { clientId: '', clientSecret: '', accounts: [] }
+  return { accounts: [] }
 }
 
 function filePath(): string {
@@ -54,13 +52,14 @@ function filePath(): string {
 
 export function readStore(): StoreFile {
   try {
-    const parsed = JSON.parse(readFileSync(filePath(), 'utf8')) as Partial<StoreFile>
-    return {
-      clientId: parsed.clientId ?? '',
-      clientSecret: parsed.clientSecret ?? '',
+    const raw = readFileSync(filePath(), 'utf8')
+    const parsed = JSON.parse(raw) as Partial<StoreFile> & { clientId?: string; clientSecret?: string }
+    const store: StoreFile = {
       accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
       window: readWindow(parsed.window)
     }
+    if ('clientId' in parsed || 'clientSecret' in parsed) writeStore(store)
+    return store
   } catch {
     return emptyStore()
   }

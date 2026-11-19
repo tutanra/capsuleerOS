@@ -4,7 +4,7 @@ import { Pips } from '../components/Pips'
 import { SkillTip } from '../components/SkillTip'
 import { formatEveDate, formatNum } from '../lib/format'
 import { usePaneWidth } from '../lib/paneWidth'
-import { studiedPercent, useNow } from '../lib/training'
+import { isTraining, liveTrainingQueue, studiedPercent, useNow } from '../lib/training'
 import { useCharacter } from '../state/character'
 import { useSettings } from '../state/settings'
 import type { Skill, TrainingJob } from '../types'
@@ -79,13 +79,13 @@ function formatSpan(ms: number): string {
   return `${minutes} min`
 }
 
-function ownDuration(jobs: TrainingJob[], index: number): string {
+function ownDuration(jobs: TrainingJob[], index: number, now: number): string {
   const finishAt = jobs[index]?.finishAt
   if (!finishAt) return 'En pausa'
   const finish = new Date(finishAt).getTime()
   if (Number.isNaN(finish)) return 'En pausa'
   if (index > 0 && !jobs[index - 1]?.finishAt) return 'En pausa'
-  const previous = index === 0 ? Date.now() : new Date(jobs[index - 1]!.finishAt!).getTime()
+  const previous = index === 0 ? now : new Date(jobs[index - 1]!.finishAt!).getTime()
   if (Number.isNaN(previous)) return 'En pausa'
   return formatSpan(finish - previous)
 }
@@ -215,38 +215,36 @@ export const Skills = memo(function Skills() {
       }))
       .sort((a, b) => a.name.localeCompare(b.name, 'en'))
   }, [skillGroups, untrained, skillQuery])
-  const queued = new Set(trainingQueue.map((job) => job.name))
+  const now = useNow()
+  const queue = useMemo(() => liveTrainingQueue(trainingQueue, now), [trainingQueue, now])
+  const queued = new Set(queue.map((job) => job.name))
   const queueTarget = useMemo(() => {
     const map = new Map<string, number>()
-    for (const job of trainingQueue) {
+    for (const job of queue) {
       map.set(job.name, Math.max(map.get(job.name) ?? 0, job.to))
     }
     return map
-  }, [trainingQueue])
-  const now = useNow()
+  }, [queue])
   const points = parseSp(spText)
-  const projection = useMemo(() => projectQueue(trainingQueue, points), [trainingQueue, points])
+  const projection = useMemo(() => projectQueue(queue, points, now), [queue, points, now])
   if (!profile) return null
 
   const completed = projection.rows.filter((row) => row.job.remainingSp > 0 && row.left === 0)
   const completedNames = new Set(completed.map((row) => row.job.name))
   const partial = projection.rows.find((row) => row.left > 0 && row.covered > 0)
-  const queueSp = trainingQueue.reduce((sum, job) => sum + (job.remainingSp ?? 0), 0)
-  const queueEnd = trainingQueue.at(-1)?.finishAt ?? null
-  const activeJob = trainingQueue[0]
-  const activeTraining =
-    activeJob && activeJob.finishAt != null && Date.parse(activeJob.finishAt) > Date.now()
-      ? { name: activeJob.name, to: activeJob.to }
-      : undefined
+  const queueSp = queue.reduce((sum, job) => sum + (job.remainingSp ?? 0), 0)
+  const queueEnd = queue.at(-1)?.finishAt ?? null
+  const activeJob = queue[0]
+  const activeTraining = activeJob && isTraining(activeJob, now) ? { name: activeJob.name, to: activeJob.to } : undefined
 
   const counts: Record<SectionId, number | null> = {
-    queue: trainingQueue.length,
+    queue: queue.length,
     trained: trained.length,
     calc: null
   }
 
   let calcSummary = 'Escribe unos skill points para ver cuántas habilidades de la cola se completarían.'
-  if (trainingQueue.length === 0) {
+  if (queue.length === 0) {
     calcSummary = 'La cola está vacía.'
   } else if (spText.trim()) {
     const levels = completed.length
@@ -319,13 +317,13 @@ export const Skills = memo(function Skills() {
                   </tr>
                 </thead>
                 <tbody>
-                  {trainingQueue.length === 0 && (
+                  {queue.length === 0 && (
                     <tr>
                       <td colSpan={5}>Sin trabajos en la cola.</td>
                     </tr>
                   )}
-                  {trainingQueue.map((job, index) => {
-                    const training = index === 0 && job.finishAt != null && Date.parse(job.finishAt) > Date.now()
+                  {queue.map((job, index) => {
+                    const training = index === 0 && isTraining(job, now)
                     return (
                     <tr key={`${job.name}-${job.to}-${index}`} className={training ? 'training' : 'queued'}>
                       <td>
@@ -334,7 +332,7 @@ export const Skills = memo(function Skills() {
                         {training && <span className="train-pct">{studiedPercent(job, now)}%</span>}
                       </td>
                       <td className="num">{formatNum(job.remainingSp ?? 0)} SP</td>
-                      <td className="num">{ownDuration(trainingQueue, index)}</td>
+                      <td className="num">{ownDuration(queue, index, now)}</td>
                       <td className="mono">{formatEveDate(job.finishAt)}</td>
                       <td className="pips-cell">
                         <Pips

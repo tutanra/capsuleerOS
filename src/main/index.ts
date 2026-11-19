@@ -1,6 +1,6 @@
 import { app, BrowserWindow, Menu, ipcMain, screen, type Rectangle } from 'electron'
 import { join } from 'node:path'
-import { addCharacter, cachedCharacters, cancelLogin, characterMarketRegion, hasStoredCharacters, itemHistory, itemMarket, listCharacters, publicSettings, removeCharacter, reorderCharacters, saveSettings, searchMarketTypes, skillDescription } from './eve'
+import { addCharacter, cachedCharacters, cancelLogin, characterMarketRegion, hasStoredCharacters, itemHistory, itemMarket, listCharacters, removeCharacter, reorderCharacters, searchMarketTypes, skillDescription } from './eve'
 import { MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH, readStore, writeStore, type WindowState } from './store'
 import { checkForUpdates, currentUpdate, installUpdate, startUpdates } from './update'
 
@@ -91,8 +91,6 @@ bindWindow('window:toggle-maximize', (win) => {
 })
 bindWindow('window:close', (win) => win.close())
 
-ipcMain.handle('sso:settings', () => publicSettings())
-ipcMain.handle('sso:save-settings', (_event, input: { clientId: string; clientSecret?: string }) => saveSettings(input))
 ipcMain.handle('sso:has', () => hasStoredCharacters())
 ipcMain.handle('sso:cached', () => cachedCharacters())
 ipcMain.handle('sso:list', () => listCharacters())
